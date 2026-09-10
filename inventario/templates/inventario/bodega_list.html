@@ -1,0 +1,35 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Lista de Bodegas{% endblock %}
+
+{% block content %}
+<div class="warehouse-list">
+    <div class="header-actions">
+        <h1>🏪 Bodegas</h1>
+        <a href="{% url 'inventario:crear_bodega' %}" class="btn btn-primary">+ Nueva Bodega</a>
+    </div>
+
+    <div class="warehouse-grid">
+        {% for bodega in bodegas %}
+        <div class="warehouse-card {% if not bodega.activa %}inactive{% endif %}">
+            <h3>{{ bodega.nombre }}</h3>
+            <p><strong>Ubicación:</strong> {{ bodega.ubicacion|default:"No especificada" }}</p>
+            <p><strong>Descripción:</strong> {{ bodega.descripcion|default:"Sin descripción" }}</p>
+            <p><strong>Estado:</strong> 
+                {% if bodega.activa %}
+                    <span class="badge badge-success">Activa</span>
+                {% else %}
+                    <span class="badge badge-danger">Inactiva</span>
+                {% endif %}
+            </p>
+            <div class="warehouse-actions">
+                <a href="{% url 'inventario:inventario_bodega' bodega.pk %}" class="btn btn-sm btn-info">Ver inventario</a>
+                <a href="{% url 'inventario:editar_bodega' bodega.pk %}" class="btn btn-sm btn-secondary">Editar</a>
+            </div>
+        </div>
+        {% empty %}
+        <p>No hay bodegas registradas.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

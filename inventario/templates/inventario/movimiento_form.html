@@ -1,0 +1,78 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ titulo }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        
+        <div class="form-group">
+            <label for="{{ form.producto.id_for_label }}">Producto:</label>
+            {{ form.producto }}
+            {{ form.producto.errors }}
+        </div>
+
+        <div class="form-row">
+            {% if form.bodega_origen %}
+            <div class="form-group">
+                <label for="{{ form.bodega_origen.id_for_label }}">{{ form.bodega_origen.label }}:</label>
+                {{ form.bodega_origen }}
+                {{ form.bodega_origen.errors }}
+            </div>
+            {% endif %}
+            
+            {% if form.bodega_destino %}
+            <div class="form-group">
+                <label for="{{ form.bodega_destino.id_for_label }}">{{ form.bodega_destino.label }}:</label>
+                {{ form.bodega_destino }}
+                {{ form.bodega_destino.errors }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.cantidad.id_for_label }}">Cantidad:</label>
+                {{ form.cantidad }}
+                {{ form.cantidad.errors }}
+            </div>
+            
+            {% if form.numero_adendum %}
+            <div class="form-group">
+                <label for="{{ form.numero_adendum.id_for_label }}">
+                    {{ form.numero_adendum.label }}
+                    {% if form.numero_adendum.field.required %}
+                        <span style="color: #e74c3c;">*</span>
+                    {% endif %}
+                </label>
+                {{ form.numero_adendum }}
+                {% if form.numero_adendum.help_text %}
+                    <small style="color: #7f8c8d;">{{ form.numero_adendum.help_text }}</small>
+                {% endif %}
+                {{ form.numero_adendum.errors }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.descripcion.id_for_label }}">Descripción:</label>
+            {{ form.descripcion }}
+            {{ form.descripcion.errors }}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Registrar</button>
+            <a href="{% url 'inventario:lista_movimientos' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

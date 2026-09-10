@@ -1,0 +1,57 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Inicio - Sistema de Inventario{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>📊 Panel de Control</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_productos }}</div>
+            <div class="stat-label">Total de Productos</div>
+        </div>
+        <div class="stat-card alert">
+            <div class="stat-number">{{ productos_bajo_stock }}</div>
+            <div class="stat-label">Productos con Stock Bajo</div>
+        </div>
+    </div>
+
+    <div class="recent-movements">
+        <h2>Últimos Movimientos</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Tipo</th>
+                    <th>Cantidad</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movimiento in ultimos_movimientos %}
+                <tr>
+                    <td>{{ movimiento.producto.nombre }}</td>
+                    <td>
+                        <span class="badge {% if movimiento.tipo == 'ENT' %}badge-success{% else %}badge-danger{% endif %}">
+                            {{ movimiento.get_tipo_display }}
+                        </span>
+                    </td>
+                    <td>{{ movimiento.cantidad }}</td>
+                    <td>{{ movimiento.created_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No hay movimientos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="actions">
+        <a href="{% url 'inventario:lista_productos' %}" class="btn">Ver todos los productos</a>
+        <a href="{% url 'inventario:crear_producto' %}" class="btn btn-primary">Agregar nuevo producto</a>
+    </div>
+</div>
+{% endblock %}

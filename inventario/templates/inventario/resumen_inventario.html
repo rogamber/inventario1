@@ -1,0 +1,34 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Resumen de Inventario{% endblock %}
+
+{% block content %}
+<div class="summary">
+    <h1>📈 Resumen General de Inventario</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_bodegas }}</div>
+            <div class="stat-label">Total de Bodegas</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ total_productos }}</div>
+            <div class="stat-label">Total de Productos</div>
+        </div>
+    </div>
+
+    <h2>Resumen por Bodega</h2>
+    <div class="warehouse-summary-grid">
+        {% for item in resumen %}
+        <div class="warehouse-summary-card">
+            <h3>{{ item.bodega.nombre }}</h3>
+            <p><strong>Productos:</strong> {{ item.total_productos }}</p>
+            <p><strong>Items totales:</strong> {{ item.total_items }}</p>
+            <a href="{% url 'inventario:inventario_bodega' item.bodega.pk %}" class="btn btn-sm btn-info">Ver detalles</a>
+        </div>
+        {% empty %}
+        <p>No hay bodegas registradas.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

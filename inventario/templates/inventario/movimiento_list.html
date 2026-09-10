@@ -1,0 +1,65 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Historial de Movimientos{% endblock %}
+
+{% block content %}
+<div class="movement-list">
+    <div class="header-actions">
+        <h1>📊 Historial de Movimientos</h1>
+        <div>
+            <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-success">➕ Entrada</a>
+            <a href="{% url 'inventario:salida_producto' %}" class="btn btn-danger">➖ Salida</a>
+            <a href="{% url 'inventario:traslado_producto' %}" class="btn btn-info">🔄 Traslado</a>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Boleta</th>
+                <th>Adendum</th>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th>Cantidad</th>
+                <th>Usuario</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movimiento in movimientos %}
+            <tr>
+                <td><strong>{{ movimiento.numero_boleta }}</strong></td>
+                <td>
+                    {% if movimiento.numero_adendum %}
+                        <span class="badge badge-info">{{ movimiento.numero_adendum }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if movimiento.tipo == 'ENT' %}badge-success{% elif movimiento.tipo == 'SAL' %}badge-danger{% else %}badge-info{% endif %}">
+                        {{ movimiento.get_tipo_display }}
+                    </span>
+                </td>
+                <td>{{ movimiento.producto.nombre }}</td>
+                <td>{{ movimiento.bodega_origen.nombre|default:"-" }}</td>
+                <td>{{ movimiento.bodega_destino.nombre|default:"-" }}</td>
+                <td>{{ movimiento.cantidad }}</td>
+                <td>{{ movimiento.usuario.username|default:"-" }}</td>
+                <td>{{ movimiento.created_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <a href="{% url 'inventario:detalle_movimiento' movimiento.pk %}" class="btn btn-sm btn-info">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="10" class="text-center">No hay movimientos registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

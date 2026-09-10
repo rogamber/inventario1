@@ -1,0 +1,57 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}
+{% if bodega %}Editar Bodega{% else %}Nueva Bodega{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>
+        {% if bodega %}
+            ✏️ Editar Bodega: {{ bodega.nombre }}
+        {% else %}
+            🏪 Nueva Bodega
+        {% endif %}
+    </h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="nombre">Nombre de la Bodega:</label>
+            <input type="text" name="nombre" id="nombre" 
+                   value="{{ bodega.nombre|default:'' }}" 
+                   required maxlength="100">
+        </div>
+
+        <div class="form-group">
+            <label for="ubicacion">Ubicación:</label>
+            <input type="text" name="ubicacion" id="ubicacion" 
+                   value="{{ bodega.ubicacion|default:'' }}" 
+                   maxlength="200"
+                   placeholder="Ej: Edificio A, Piso 2">
+        </div>
+
+        <div class="form-group">
+            <label for="descripcion">Descripción:</label>
+            <textarea name="descripcion" id="descripcion" rows="3"
+                      placeholder="Descripción opcional de la bodega">{{ bodega.descripcion|default:'' }}</textarea>
+        </div>
+
+        {% if bodega %}
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="activa" 
+                       {% if bodega.activa %}checked{% endif %}>
+                Bodega activa
+            </label>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+            <a href="{% url 'inventario:lista_bodegas' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

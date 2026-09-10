@@ -1,0 +1,60 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Lista de Productos{% endblock %}
+
+{% block content %}
+<div class="product-list">
+    <div class="header-actions">
+        <h1>📋 Productos</h1>
+        <a href="{% url 'inventario:crear_producto' %}" class="btn btn-primary">+ Nuevo Producto</a>
+    </div>
+
+    <form method="get" class="search-form">
+        <input type="text" name="q" placeholder="Buscar por nombre, código o categoría..." value="{{ query }}">
+        <button type="submit" class="btn">Buscar</button>
+        {% if query %}
+            <a href="{% url 'inventario:lista_productos' %}" class="btn btn-secondary">Limpiar</a>
+        {% endif %}
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for producto in productos %}
+            <tr>
+                <td>{{ producto.codigo }}</td>
+                <td><a href="{% url 'inventario:detalle_producto' producto.pk %}">{{ producto.nombre }}</a></td>
+                <td>{{ producto.categoria.nombre|default:"-" }}</td>
+                <td>${{ producto.precio }}</td>
+                <td>
+                    <span class="stock {% if producto.stock <= producto.stock_minimo %}stock-low{% endif %}">
+                        {{ producto.stock }}
+                    </span>
+                    {% if producto.stock <= producto.stock_minimo %}
+                        <span class="badge badge-warning">Stock bajo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'inventario:detalle_producto' producto.pk %}" class="btn btn-sm">Ver</a>
+                    <a href="{% url 'inventario:editar_producto' producto.pk %}" class="btn btn-sm btn-secondary">Editar</a>
+                    <a href="{% url 'inventario:eliminar_producto' producto.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">No hay productos registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

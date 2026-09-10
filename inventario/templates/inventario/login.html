@@ -1,0 +1,47 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Iniciar Sesión{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <h1>🔐 Iniciar Sesión</h1>
+        
+        {% if form.errors %}
+            <div class="alert alert-error">
+                <strong>Error:</strong> Usuario o contraseña incorrectos.
+            </div>
+        {% endif %}
+        
+        {% if next %}
+            <div class="alert alert-info">
+                <strong>Info:</strong> Debes iniciar sesión para acceder a esta página.
+            </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}">Usuario:</label>
+                {{ form.username }}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}">Contraseña:</label>
+                {{ form.password }}
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+            </div>
+            
+            <input type="hidden" name="next" value="{{ next }}">
+        </form>
+        
+        <div class="login-help">
+            <p>¿No tienes cuenta? Contacta al administrador.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

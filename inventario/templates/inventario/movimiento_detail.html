@@ -1,0 +1,32 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle de Movimiento{% endblock %}
+
+{% block content %}
+<div class="movement-detail">
+    <h1>📋 Detalle del Movimiento</h1>
+    
+    <div class="detail-card">
+        <p><strong>Boleta:</strong> {{ movimiento.numero_boleta }}</p>
+        <p><strong>Adendum:</strong> 
+            {% if movimiento.numero_adendum %}
+                <span class="badge badge-info">{{ movimiento.numero_adendum }}</span>
+            {% else %}
+                -
+            {% endif %}
+        </p>
+        <p><strong>Tipo:</strong> {{ movimiento.get_tipo_display }}</p>
+        <p><strong>Producto:</strong> {{ movimiento.producto.nombre }}</p>
+        <p><strong>Cantidad:</strong> {{ movimiento.cantidad }}</p>
+        <p><strong>Bodega Origen:</strong> {{ movimiento.bodega_origen.nombre|default:"-" }}</p>
+        <p><strong>Bodega Destino:</strong> {{ movimiento.bodega_destino.nombre|default:"-" }}</p>
+        <p><strong>Descripción:</strong> {{ movimiento.descripcion|default:"-" }}</p>
+        <p><strong>Usuario:</strong> {{ movimiento.usuario.username|default:"-" }}</p>
+        <p><strong>Fecha:</strong> {{ movimiento.created_at|date:"d/m/Y H:i" }}</p>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'inventario:lista_movimientos' %}" class="btn btn-secondary">← Volver</a>
+    </div>
+</div>
+{% endblock %}
