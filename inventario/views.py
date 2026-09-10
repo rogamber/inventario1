@@ -6,7 +6,12 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.urls import reverse_lazy
 from .models import Producto, Categoria, Movimiento, Bodega, Inventario
-from .forms import ProductoForm, MovimientoForm, EntradaForm, SalidaForm, TrasladoForm, InventarioForm
+from .forms import ProductoForm, MovimientoForm, EntradaForm, SalidaForm, TrasladoForm, InventarioForm , TrasladoMasivoForm
+import json
+from django.http import JsonResponse
+from django.core.serializers.json import DjangoJSONEncoder
+from .forms import EntradaMasivaForm, SalidaMasivaForm
+from .models import MovimientoMasivo
 
 # Vista de inicio de sesión personalizada
 class CustomLoginView(LoginView):
@@ -346,3 +351,337 @@ def resumen_inventario(request):
         'total_productos': productos.count(),
     }
     return render(request, 'inventario/resumen_inventario.html', context)
+
+
+
+# ============================================================
+# MOVIMIENTOS MASIVOS
+# ============================================================
+
+@login_required
+def entrada_masiva(request):
+    """Vista para registrar entrada masiva de productos"""
+    if request.method == 'POST':
+        form = EntradaMasivaForm(request.POST)
+        productos_json = request.POST.get('productos_json', '[]')
+        
+        if form.is_valid():
+            try:
+                productos = json.loads(productos_json)
+            except json.JSONDecodeError:
+                messages.error(request, 'Error al procesar los productos.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Entrada Masiva', 'tipo': 'entrada'
+                })
+            
+            if not productos:
+                messages.error(request, 'Debes agregar al menos un producto.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Entrada Masiva', 'tipo': 'entrada'
+                })
+            
+            movimiento_masivo = MovimientoMasivo.objects.create(
+                tipo=MovimientoMasivo.TIPO_ENTRADA,
+                numero_adendum=form.cleaned_data.get('numero_adendum', ''),
+                bodega=form.cleaned_data['bodega_destino'],
+                descripcion=form.cleaned_data.get('descripcion', ''),
+                usuario=request.user
+            )
+            
+            for prod_data in productos:
+                try:
+                    producto = Producto.objects.get(pk=prod_data['producto_id'])
+                    cantidad = int(prod_data['cantidad'])
+                    if cantidad <= 0:
+                        continue
+                    
+                    Movimiento.objects.create(
+                        tipo=Movimiento.TIPO_ENTRADA,
+                        producto=producto,
+                        bodega_destino=form.cleaned_data['bodega_destino'],
+                        cantidad=cantidad,
+                        descripcion=f"Entrada masiva - Boleta: {movimiento_masivo.numero_boleta}",
+                        usuario=request.user,
+                        movimiento_masivo=movimiento_masivo
+                    )
+                    
+                    inventario, created = Inventario.objects.get_or_create(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_destino'],
+                        defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
+                    )
+                    inventario.cantidad += cantidad
+                    inventario.save()
+                except (Producto.DoesNotExist, ValueError, KeyError):
+                    continue
+            
+            messages.success(request, f'Entrada masiva registrada. Boleta: {movimiento_masivo.numero_boleta}')
+            return redirect('inventario:detalle_movimiento_masivo', pk=movimiento_masivo.pk)
+    else:
+        form = EntradaMasivaForm()
+    
+    productos_list = list(Producto.objects.all().order_by('nombre').values(
+        'id', 'nombre', 'codigo', 'numero_serie', 'precio'
+    ))
+    for p in productos_list:
+        p['precio'] = str(p['precio'])
+        p['numero_serie'] = p['numero_serie'] or ''
+    
+    context = {
+        'form': form,
+        'titulo': 'Entrada Masiva',
+        'tipo': 'entrada',
+        'productos_json': json.dumps(productos_list),
+    }
+    return render(request, 'inventario/movimiento_masivo_form.html', context)
+
+# ============================================================
+# MOVIMIENTOS MASIVOS
+# ============================================================
+
+
+@login_required
+def salida_masiva(request):
+    """Vista para registrar salida masiva de productos"""
+    if request.method == 'POST':
+        form = SalidaMasivaForm(request.POST)
+        productos_json = request.POST.get('productos_json', '[]')
+        
+        if form.is_valid():
+            try:
+                productos = json.loads(productos_json)
+            except json.JSONDecodeError:
+                messages.error(request, 'Error al procesar los productos.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
+                })
+            
+            if not productos:
+                messages.error(request, 'Debes agregar al menos un producto.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
+                })
+            
+            # Verificar stock
+            errores = []
+            for prod_data in productos:
+                try:
+                    producto = Producto.objects.get(pk=prod_data['producto_id'])
+                    cantidad = int(prod_data['cantidad'])
+                    
+                    inventario = Inventario.objects.filter(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_origen']
+                    ).first()
+                    
+                    if not inventario or inventario.cantidad < cantidad:
+                        disponible = inventario.cantidad if inventario else 0
+                        errores.append(f"{producto.nombre}: stock insuficiente (disponible: {disponible})")
+                except (Producto.DoesNotExist, ValueError, KeyError):
+                    continue
+            
+            if errores:
+                for error in errores:
+                    messages.error(request, error)
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
+                })
+            
+            movimiento_masivo = MovimientoMasivo.objects.create(
+                tipo=MovimientoMasivo.TIPO_SALIDA,
+                numero_adendum=form.cleaned_data['numero_adendum'],
+                bodega=form.cleaned_data['bodega_origen'],
+                descripcion=form.cleaned_data.get('descripcion', ''),
+                usuario=request.user
+            )
+            
+            for prod_data in productos:
+                try:
+                    producto = Producto.objects.get(pk=prod_data['producto_id'])
+                    cantidad = int(prod_data['cantidad'])
+                    if cantidad <= 0:
+                        continue
+                    
+                    Movimiento.objects.create(
+                        tipo=Movimiento.TIPO_SALIDA,
+                        producto=producto,
+                        bodega_origen=form.cleaned_data['bodega_origen'],
+                        cantidad=cantidad,
+                        descripcion=f"Salida masiva - Boleta: {movimiento_masivo.numero_boleta}",
+                        usuario=request.user,
+                        movimiento_masivo=movimiento_masivo
+                    )
+                    
+                    inventario = Inventario.objects.get(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_origen']
+                    )
+                    inventario.cantidad -= cantidad
+                    inventario.save()
+                except (Producto.DoesNotExist, ValueError, KeyError):
+                    continue
+            
+            messages.success(request, f'Salida masiva registrada. Boleta: {movimiento_masivo.numero_boleta}')
+            return redirect('inventario:detalle_movimiento_masivo', pk=movimiento_masivo.pk)
+    else:
+        form = SalidaMasivaForm()
+    
+    productos_list = list(Producto.objects.all().order_by('nombre').values(
+        'id', 'nombre', 'codigo', 'numero_serie', 'precio'
+    ))
+    for p in productos_list:
+        p['precio'] = str(p['precio'])
+        p['numero_serie'] = p['numero_serie'] or ''
+    
+    context = {
+        'form': form,
+        'titulo': 'Salida Masiva',
+        'tipo': 'salida',
+        'productos_json': json.dumps(productos_list),
+    }
+    return render(request, 'inventario/movimiento_masivo_form.html', context)
+
+
+@login_required
+def detalle_movimiento_masivo(request, pk):
+    """Muestra el detalle de un movimiento masivo"""
+    movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
+    movimientos_detalle = movimiento_masivo.movimientos_detalle.all()
+    
+    context = {
+        'movimiento_masivo': movimiento_masivo,
+        'movimientos_detalle': movimientos_detalle,
+    }
+    return render(request, 'inventario/movimiento_masivo_detail.html', context)
+
+
+@login_required
+def lista_movimientos_masivos(request):
+    """Lista todos los movimientos masivos"""
+    movimientos_masivos = MovimientoMasivo.objects.all()
+    
+    context = {
+        'movimientos_masivos': movimientos_masivos,
+    }
+    return render(request, 'inventario/movimiento_masivo_list.html', context)
+
+@login_required
+def traslado_masivo(request):
+    """Vista para registrar traslado masivo de productos entre bodegas"""
+    if request.method == 'POST':
+        form = TrasladoMasivoForm(request.POST)
+        productos_json = request.POST.get('productos_json', '[]')
+        
+        if form.is_valid():
+            try:
+                productos = json.loads(productos_json)
+            except json.JSONDecodeError:
+                messages.error(request, 'Error al procesar los productos.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Traslado Masivo', 'tipo': 'traslado'
+                })
+            
+            if not productos:
+                messages.error(request, 'Debes agregar al menos un producto.')
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Traslado Masivo', 'tipo': 'traslado'
+                })
+            
+            # Verificar stock en bodega origen
+            errores = []
+            for prod_data in productos:
+                try:
+                    producto = Producto.objects.get(pk=prod_data['producto_id'])
+                    cantidad = int(prod_data['cantidad'])
+                    
+                    inventario = Inventario.objects.filter(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_origen']
+                    ).first()
+                    
+                    if not inventario or inventario.cantidad < cantidad:
+                        disponible = inventario.cantidad if inventario else 0
+                        errores.append(f"{producto.nombre}: stock insuficiente en origen (disponible: {disponible})")
+                except (Producto.DoesNotExist, ValueError, KeyError):
+                    continue
+            
+            if errores:
+                for error in errores:
+                    messages.error(request, error)
+                return render(request, 'inventario/movimiento_masivo_form.html', {
+                    'form': form, 'titulo': 'Traslado Masivo', 'tipo': 'traslado'
+                })
+            
+            # Crear movimiento masivo
+            movimiento_masivo = MovimientoMasivo.objects.create(
+                tipo=MovimientoMasivo.TIPO_TRASLADO,
+                numero_adendum=form.cleaned_data.get('numero_adendum', ''),
+                bodega=form.cleaned_data['bodega_origen'],
+                bodega_destino=form.cleaned_data['bodega_destino'],
+                descripcion=form.cleaned_data.get('descripcion', ''),
+                usuario=request.user
+            )
+            
+            # Procesar cada producto
+            for prod_data in productos:
+                try:
+                    producto = Producto.objects.get(pk=prod_data['producto_id'])
+                    cantidad = int(prod_data['cantidad'])
+                    if cantidad <= 0:
+                        continue
+                    
+                    # Movimiento individual
+                    Movimiento.objects.create(
+                        tipo=Movimiento.TIPO_TRASLADO,
+                        producto=producto,
+                        bodega_origen=form.cleaned_data['bodega_origen'],
+                        bodega_destino=form.cleaned_data['bodega_destino'],
+                        cantidad=cantidad,
+                        descripcion=f"Traslado masivo - Boleta: {movimiento_masivo.numero_boleta}",
+                        usuario=request.user,
+                        movimiento_masivo=movimiento_masivo
+                    )
+                    
+                    # Restar de bodega origen
+                    inv_origen = Inventario.objects.get(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_origen']
+                    )
+                    inv_origen.cantidad -= cantidad
+                    inv_origen.save()
+                    
+                    # Sumar a bodega destino
+                    inv_destino, created = Inventario.objects.get_or_create(
+                        producto=producto,
+                        bodega=form.cleaned_data['bodega_destino'],
+                        defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
+                    )
+                    inv_destino.cantidad += cantidad
+                    inv_destino.save()
+                    
+                except (Producto.DoesNotExist, Inventario.DoesNotExist, ValueError, KeyError):
+                    continue
+            
+            messages.success(
+                request, 
+                f'Traslado masivo registrado. Boleta: {movimiento_masivo.numero_boleta}'
+            )
+            return redirect('inventario:detalle_movimiento_masivo', pk=movimiento_masivo.pk)
+    else:
+        form = TrasladoMasivoForm()
+    
+    # Pasar productos como JSON
+    productos_list = list(Producto.objects.all().order_by('nombre').values(
+        'id', 'nombre', 'codigo', 'numero_serie', 'precio'
+    ))
+    for p in productos_list:
+        p['precio'] = str(p['precio'])
+        p['numero_serie'] = p['numero_serie'] or ''
+    
+    context = {
+        'form': form,
+        'titulo': 'Traslado Masivo',
+        'tipo': 'traslado',
+        'productos_json': json.dumps(productos_list),
+    }
+    return render(request, 'inventario/movimiento_masivo_form.html', context)

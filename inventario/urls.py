@@ -24,6 +24,13 @@ urlpatterns = [
     path('movimiento/salida/', views.salida_producto, name='salida_producto'),
     path('movimiento/traslado/', views.traslado_producto, name='traslado_producto'),
     
+    # Movimientos masivos
+    path('movimiento/masivo/entrada/', views.entrada_masiva, name='entrada_masiva'),
+    path('movimiento/masivo/salida/', views.salida_masiva, name='salida_masiva'),
+    path('movimiento/masivo/<int:pk>/', views.detalle_movimiento_masivo, name='detalle_movimiento_masivo'),
+    path('movimiento/masivo/traslado/', views.traslado_masivo, name='traslado_masivo'),
+    path('movimientos/masivos/', views.lista_movimientos_masivos, name='lista_movimientos_masivos'),
+    
     # Resumen
     path('resumen/', views.resumen_inventario, name='resumen_inventario'),
 ]

@@ -40,6 +40,13 @@ class Producto(models.Model):
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     precio_costo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     codigo = models.CharField(max_length=50, unique=True)
+    numero_serie = models.CharField(  # <--- NUEVO CAMPO
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Número de Serie',
+        help_text='Número de serie del producto (opcional)'
+    )
     stock_minimo = models.PositiveIntegerField(default=5)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -70,6 +77,83 @@ class Inventario(models.Model):
     def __str__(self):
         return f"{self.producto.nombre} - {self.bodega.nombre}: {self.cantidad}"
 
+class MovimientoMasivo(models.Model):
+    """Agrupa varios movimientos bajo una misma boleta"""
+    TIPO_ENTRADA = 'ENT'
+    TIPO_SALIDA = 'SAL'
+    TIPO_TRASLADO = 'TRA'  # <--- NUEVO
+
+    TIPO_CHOICES = [
+        (TIPO_ENTRADA, 'Entrada Masiva'),
+        (TIPO_SALIDA, 'Salida Masiva'),
+        (TIPO_TRASLADO, 'Traslado Masivo'),  # <--- NUEVO
+    ]
+
+    tipo = models.CharField(max_length=3, choices=TIPO_CHOICES)
+    numero_boleta = models.CharField(max_length=50, unique=True, blank=True)
+    numero_adendum = models.CharField(max_length=50, blank=True, null=True)
+    bodega = models.ForeignKey(  # Bodega origen o destino según el tipo
+        Bodega,
+        on_delete=models.CASCADE,
+        related_name='movimientos_masivos_principal'
+    )
+    bodega_destino = models.ForeignKey(  # <--- NUEVO (solo para traslados)
+        Bodega,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='movimientos_masivos_destino'
+    )
+    descripcion = models.TextField(blank=True)
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.numero_boleta:
+            self.numero_boleta = self._generar_numero_boleta()
+        super().save(*args, **kwargs)
+
+    def _generar_numero_boleta(self):
+        import datetime
+        hoy = datetime.datetime.now().strftime('%Y%m%d')
+        # Prefijo según el tipo
+        prefijos = {
+            self.TIPO_ENTRADA: 'MAS-E',
+            self.TIPO_SALIDA: 'MAS-S',
+            self.TIPO_TRASLADO: 'MAS-T',
+        }
+        prefijo = f"{prefijos.get(self.tipo, 'MAS')}-{hoy}-"
+
+        ultimo = MovimientoMasivo.objects.filter(
+            numero_boleta__startswith=prefijo
+        ).order_by('-numero_boleta').first()
+
+        if ultimo:
+            try:
+                ultimo_numero = int(ultimo.numero_boleta.split('-')[-1])
+                nuevo_numero = ultimo_numero + 1
+            except (ValueError, IndexError):
+                nuevo_numero = 1
+        else:
+            nuevo_numero = 1
+
+        numero_boleta = f"{prefijo}{nuevo_numero:04d}"
+
+        while MovimientoMasivo.objects.filter(numero_boleta=numero_boleta).exists():
+            nuevo_numero += 1
+            numero_boleta = f"{prefijo}{nuevo_numero:04d}"
+
+        return numero_boleta
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.numero_boleta}"
+
+    class Meta:
+        verbose_name = 'Movimiento Masivo'
+        verbose_name_plural = 'Movimientos Masivos'
+        ordering = ['-created_at']
+
 class Movimiento(models.Model):
     TIPO_ENTRADA = 'ENT'
     TIPO_SALIDA = 'SAL'
@@ -98,6 +182,12 @@ class Movimiento(models.Model):
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    movimiento_masivo = models.ForeignKey(  # <--- NUEVO CAMPO
+        MovimientoMasivo,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='movimientos_detalle')
     
     def save(self, *args, **kwargs):
         if not self.numero_boleta:
@@ -148,3 +238,6 @@ class Movimiento(models.Model):
         verbose_name = 'Movimiento'
         verbose_name_plural = 'Movimientos'
         ordering = ['-created_at']
+
+# inventario/models.py
+

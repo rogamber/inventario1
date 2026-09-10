@@ -19,9 +19,15 @@ class ProductoForm(forms.ModelForm):
     
     class Meta:
         model = Producto
-        fields = ['nombre', 'descripcion', 'categoria', 'precio', 'precio_costo', 'codigo', 'stock_minimo']
+        fields = [
+            'nombre', 'descripcion', 'categoria', 'precio', 
+            'precio_costo', 'codigo', 'numero_serie', 'stock_minimo'  # <--- Agregar numero_serie
+        ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 3}),
+            'numero_serie': forms.TextInput(attrs={
+                'placeholder': 'Opcional - Ej: SN-12345-ABC'
+            }),
         }
     
     def clean(self):
@@ -93,3 +99,100 @@ class InventarioForm(forms.ModelForm):
     class Meta:
         model = Inventario
         fields = ['producto', 'bodega', 'cantidad', 'stock_minimo']
+
+class MovimientoMasivoForm(forms.Form):
+    """Formulario para registrar movimientos masivos"""
+    
+    producto = forms.ModelChoiceField(
+        queryset=Producto.objects.all(),
+        label='Producto',
+        widget=forms.Select(attrs={'class': 'form-control producto-select'})
+    )
+    cantidad = forms.IntegerField(
+        min_value=1,
+        label='Cantidad',
+        widget=forms.NumberInput(attrs={'class': 'form-control cantidad-input', 'min': 1})
+    )
+    numero_serie = forms.CharField(  # <--- NUEVO
+        max_length=100,
+        required=False,
+        label='N° Serie (Opcional)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+
+
+class EntradaMasivaForm(forms.Form):
+    """Formulario principal para entrada masiva"""
+    
+    bodega_destino = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega de destino',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    numero_adendum = forms.CharField(
+        max_length=50,
+        required=False,
+        label='N° Adendum (Opcional)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+    descripcion = forms.CharField(
+        required=False,
+        label='Descripción',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+    )
+
+
+class SalidaMasivaForm(forms.Form):
+    """Formulario principal para salida masiva"""
+    
+    bodega_origen = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega de origen',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    numero_adendum = forms.CharField(
+        max_length=50,
+        required=True,
+        label='N° Adendum',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Obligatorio'})
+    )
+    descripcion = forms.CharField(
+        required=False,
+        label='Descripción',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+    )
+
+class TrasladoMasivoForm(forms.Form):
+    """Formulario principal para traslado masivo"""
+    
+    bodega_origen = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega de origen',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    bodega_destino = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega de destino',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    numero_adendum = forms.CharField(
+        max_length=50,
+        required=False,
+        label='N° Adendum (Opcional)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+    descripcion = forms.CharField(
+        required=False,
+        label='Descripción',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        origen = cleaned_data.get('bodega_origen')
+        destino = cleaned_data.get('bodega_destino')
+        
+        if origen and destino and origen == destino:
+            raise forms.ValidationError('Las bodegas de origen y destino deben ser diferentes.')
+        
+        return cleaned_data
