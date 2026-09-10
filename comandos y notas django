@@ -1,0 +1,36 @@
+#ver la version instalada desde la consola
+python3 -m django --version
+
+#para crear un proyecto nuevo
+django-admin startproject mi_proyecto
+
+#para iniciar las migraciones 
+python3 manage.py migrate
+
+# Crear migraciones
+python manage.py makemigrations
+
+# Aplicar migraciones
+python manage.py migrate
+
+# Ejecutar el servidor
+python manage.py runserver
+
+# Ejecutar en un puerto diferente
+python manage.py runserver 8080
+
+# Hacer migraciones después de cambiar modelos
+python manage.py makemigrations
+python manage.py migrate
+
+# Crear superusuario
+python manage.py createsuperuser
+
+# Limpiar la base de datos (reiniciar migraciones)
+python manage.py flush
+
+# Crear dump de la base de datos
+python manage.py dumpdata > backup.json
+
+# Cargar dump
+python manage.py loaddata backup.json
