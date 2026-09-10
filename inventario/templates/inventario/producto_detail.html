@@ -1,4 +1,12 @@
 <!-- En la tabla de historial de movimientos -->
+<p><strong>Código:</strong> {{ producto.codigo }}</p>
+    <p><strong>Número de Serie:</strong> 
+     {% if producto.numero_serie %}
+         {{ producto.numero_serie }}
+     {% else %}
+        <span style="color: #7f8c8d;">Sin número de serie</span>
+     {% endif %}
+
 <thead>
     <tr>
         <th>Boleta</th>
@@ -38,4 +46,6 @@
         <td colspan="8" class="text-center">No hay movimientos para este producto.</td>
     </tr>
     {% endfor %}
+    
+</p>
 </tbody>

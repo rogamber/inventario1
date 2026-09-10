@@ -1,0 +1,66 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Movimientos Masivos{% endblock %}
+
+{% block content %}
+<div class="movement-list">
+    <div class="header-actions">
+        <h1>📊 Movimientos Masivos</h1>
+        <div>
+            <a href="{% url 'inventario:entrada_masiva' %}" class="btn btn-success">➕ Entrada Masiva</a>
+            <a href="{% url 'inventario:salida_masiva' %}" class="btn btn-danger">➖ Salida Masiva</a>
+            <a href="{% url 'inventario:traslado_masivo' %}" class="btn btn-info">🔄 Traslado Masivo</a>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Boleta</th>
+                <th>Adendum</th>
+                <th>Tipo</th>
+                <th>Origen</th>
+                <th>Destino</th>
+                <th>Productos</th>
+                <th>Usuario</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for mm in movimientos_masivos %}
+            <tr>
+                <td><strong>{{ mm.numero_boleta }}</strong></td>
+                <td>
+                    {% if mm.numero_adendum %}
+                        <span class="badge badge-info">{{ mm.numero_adendum }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge 
+                        {% if mm.tipo == 'ENT' %}badge-success
+                        {% elif mm.tipo == 'SAL' %}badge-danger
+                        {% else %}badge-info{% endif %}">
+                        {{ mm.get_tipo_display }}
+                    </span>
+                </td>
+                <td>{{ mm.bodega.nombre }}</td>
+                <td>{{ mm.bodega_destino.nombre|default:"-" }}</td>
+                <td>{{ mm.movimientos_detalle.count }}</td>
+                <td>{{ mm.usuario.username|default:"-" }}</td>
+                <td>{{ mm.created_at|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <a href="{% url 'inventario:detalle_movimiento_masivo' mm.pk %}" class="btn btn-sm btn-info">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center">No hay movimientos masivos registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

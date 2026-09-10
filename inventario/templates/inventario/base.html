@@ -32,12 +32,17 @@
                         </li>
                         <li class="dropdown">
                             <a href="#">📊 Movimientos</a>
-                            <ul class="dropdown-menu">
+                              <ul class="dropdown-menu">
                                 <li><a href="{% url 'inventario:lista_movimientos' %}">Historial</a></li>
                                 <li><a href="{% url 'inventario:entrada_producto' %}">Entrada</a></li>
                                 <li><a href="{% url 'inventario:salida_producto' %}">Salida</a></li>
                                 <li><a href="{% url 'inventario:traslado_producto' %}">Traslado</a></li>
-                            </ul>
+                                <li style="border-top: 1px solid #eee; margin: 5px 0;"></li>
+                                <li><a href="{% url 'inventario:entrada_masiva' %}">📦 Entrada Masiva</a></li>
+                                <li><a href="{% url 'inventario:salida_masiva' %}">📦 Salida Masiva</a></li>
+                                <li><a href="{% url 'inventario:traslado_masivo' %}">📦 Traslado Masivo</a></li>
+                                <li><a href="{% url 'inventario:lista_movimientos_masivos' %}">📋 Historial Masivos</a></li>
+                              </ul>
                         </li>
                         <li><a href="{% url 'inventario:resumen_inventario' %}">📈 Resumen</a></li>
                         <li><a href="{% url 'admin:index' %}">⚙️ Admin</a></li>

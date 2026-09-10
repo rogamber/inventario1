@@ -1,0 +1,73 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle Movimiento Masivo{% endblock %}
+
+{% block content %}
+<div class="movement-detail">
+    <div class="header-actions">
+        <h1>📋 Detalle del Movimiento Masivo</h1>
+        <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
+    </div>
+    
+    <div class="detail-card">
+        <p><strong>Boleta:</strong> {{ movimiento_masivo.numero_boleta }}</p>
+        <p><strong>Tipo:</strong> 
+            <span class="badge 
+                {% if movimiento_masivo.tipo == 'ENT' %}badge-success
+                {% elif movimiento_masivo.tipo == 'SAL' %}badge-danger
+                {% else %}badge-info{% endif %}">
+                {{ movimiento_masivo.get_tipo_display }}
+            </span>
+        </p>
+        <p><strong>Adendum:</strong> 
+            {% if movimiento_masivo.numero_adendum %}
+                <span class="badge badge-info">{{ movimiento_masivo.numero_adendum }}</span>
+            {% else %}
+                -
+            {% endif %}
+        </p>
+        <p><strong>Bodega Origen:</strong> {{ movimiento_masivo.bodega.nombre }}</p>
+        {% if movimiento_masivo.bodega_destino %}
+        <p><strong>Bodega Destino:</strong> {{ movimiento_masivo.bodega_destino.nombre }}</p>
+        {% endif %}
+        <p><strong>Descripción:</strong> {{ movimiento_masivo.descripcion|default:"-" }}</p>
+        <p><strong>Usuario:</strong> {{ movimiento_masivo.usuario.username|default:"-" }}</p>
+        <p><strong>Fecha:</strong> {{ movimiento_masivo.created_at|date:"d/m/Y H:i" }}</p>
+        <p><strong>Total de productos:</strong> {{ movimientos_detalle.count }}</p>
+    </div>
+
+    <div class="movements">
+        <h2>📦 Productos del Movimiento</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>N° Serie</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimientos_detalle %}
+                <tr>
+                    <td>{{ mov.producto.nombre }}</td>
+                    <td>{{ mov.producto.codigo }}</td>
+                    <td>
+                        {% if mov.producto.numero_serie %}
+                            {{ mov.producto.numero_serie }}
+                        {% else %}
+                            <span style="color: #7f8c8d;">-</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ mov.cantidad }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center">No hay productos en este movimiento.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
