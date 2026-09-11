@@ -30,6 +30,7 @@ urlpatterns = [
     path('movimiento/masivo/<int:pk>/', views.detalle_movimiento_masivo, name='detalle_movimiento_masivo'),
     path('movimiento/masivo/traslado/', views.traslado_masivo, name='traslado_masivo'),
     path('movimientos/masivos/', views.lista_movimientos_masivos, name='lista_movimientos_masivos'),
+    path('movimiento/masivo/<int:pk>/pdf/', views.generar_pdf_transferencia, name='pdf_transferencia'),
     
     # Resumen
     path('resumen/', views.resumen_inventario, name='resumen_inventario'),

@@ -12,6 +12,10 @@ from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from .forms import EntradaMasivaForm, SalidaMasivaForm
 from .models import MovimientoMasivo
+import io
+from django.http import FileResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
 
 # Vista de inicio de sesión personalizada
 class CustomLoginView(LoginView):
@@ -158,11 +162,11 @@ def eliminar_producto(request, pk):
         nombre = producto.nombre
         producto.delete()
         messages.success(request, f'Producto "{nombre}" eliminado correctamente.')
-        return redirect('inventario:lista_productos')
+        return redirect('inventario:lista_productos')  # <--- CORREGIDO
     
     context = {'producto': producto}
     return render(request, 'inventario/producto_confirm_delete.html', context)
-
+    
 # ============================================================
 # BODEGAS
 # ============================================================
@@ -685,3 +689,29 @@ def traslado_masivo(request):
         'productos_json': json.dumps(productos_list),
     }
     return render(request, 'inventario/movimiento_masivo_form.html', context)
+
+
+@login_required
+def generar_pdf_transferencia(request, pk):
+    movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
+    movimientos_detalle = movimiento_masivo.movimientos_detalle.all()
+
+    context = {
+        'movimiento': movimiento_masivo,
+        'movimientos_detalle': movimientos_detalle,
+    }
+
+    # Renderiza la plantilla HTML con el contexto
+    html_string = render_to_string('inventario/transferencia_pdf.html', context)
+
+    # Crea un buffer en memoria para almacenar el PDF
+    buffer = io.BytesIO()
+    
+    # Convierte el HTML a PDF usando WeasyPrint
+    HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf(buffer)
+    
+    # Regresa el buffer al principio
+    buffer.seek(0)
+    
+    # Crea la respuesta HTTP con el contenido del PDF
+    return FileResponse(buffer, as_attachment=True, filename=f'transferencia_{movimiento_masivo.numero_boleta}.pdf')
