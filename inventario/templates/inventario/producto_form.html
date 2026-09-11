@@ -40,16 +40,6 @@
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="{{ form.numero_serie.id_for_label }}">
-                Número de Serie:
-                <small style="color: #7f8c8d;">(Opcional)</small>
-            </label>
-            {{ form.numero_serie }}
-            <small style="color: #7f8c8d;">{{ form.numero_serie.help_text }}</small>
-            {{ form.numero_serie.errors }}
-        </div>
-
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ form.precio.id_for_label }}">Precio venta:</label>
@@ -71,9 +61,25 @@
             </div>
         </div>
 
+        <!-- ✅ CHECKBOX DE MANEJA SERIE -->
+        <div class="form-group" style="border: 2px solid #3498db; border-radius: 8px; padding: 15px; background: #f8f9fa;">
+            <label style="display: flex; align-items: center; cursor: pointer; margin: 0;">
+                <span style="margin-right: 10px;">{{ form.maneja_serie }}</span>
+                <span>
+                    <strong>{{ form.maneja_serie.label }}</strong>
+                    <small style="display: block; color: #7f8c8d;">
+                        {{ form.maneja_serie.help_text }}
+                    </small>
+                </span>
+            </label>
+            {{ form.maneja_serie.errors }}
+        </div>
+
         {% if not producto %}
         <fieldset style="border: 2px solid #3498db; border-radius: 8px; padding: 15px; margin-top: 20px;">
-            <legend style="color: #3498db; font-weight: bold; padding: 0 10px;">📦 Stock Inicial (Opcional)</legend>
+            <legend style="color: #3498db; font-weight: bold; padding: 0 10px;">
+                📦 Stock Inicial (Solo para productos sin número de serie)
+            </legend>
             
             <div class="form-row">
                 <div class="form-group">
@@ -88,7 +94,7 @@
                 </div>
             </div>
             <p style="color: #7f8c8d; font-size: 0.9rem;">
-                Si ingresas una cantidad, se generará una boleta de entrada automáticamente.
+                Si el producto maneja número de serie, deberás registrar las unidades individualmente desde la sección de Unidades.
             </p>
         </fieldset>
         {% endif %}

@@ -24,6 +24,7 @@
             </p>
             <div class="warehouse-actions">
                 <a href="{% url 'inventario:inventario_bodega' bodega.pk %}" class="btn btn-sm btn-info">Ver inventario</a>
+                 <a href="{% url 'inventario:exportar_bodega_excel' bodega.pk %}" class="btn btn-sm btn-success">📊 Excel</a>
                 <a href="{% url 'inventario:editar_bodega' bodega.pk %}" class="btn btn-sm btn-secondary">Editar</a>
             </div>
         </div>

@@ -1,0 +1,60 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ titulo }}</h1>
+    
+    <div class="alert alert-info">
+        <strong>💡 Ayuda:</strong> Esta opción crea varias unidades con números de serie consecutivos.
+        <br>Ejemplo: Si usas prefijo <code>SN-2024-</code> y número inicial <code>1</code> con cantidad <code>5</code>,
+        se crearán: <code>SN-2024-0001</code>, <code>SN-2024-0002</code>, ..., <code>SN-2024-0005</code>.
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.cantidad.id_for_label }}">Cantidad de unidades:</label>
+                {{ form.cantidad }}
+                {{ form.cantidad.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.numero_inicial.id_for_label }}">Número inicial:</label>
+                {{ form.numero_inicial }}
+                {{ form.numero_inicial.errors }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.prefijo.id_for_label }}">Prefijo del N° Serie:</label>
+            {{ form.prefijo }}
+            {{ form.prefijo.errors }}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.bodega.id_for_label }}">Bodega:</label>
+                {{ form.bodega }}
+                {{ form.bodega.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.estado.id_for_label }}">Estado:</label>
+                {{ form.estado }}
+                {{ form.estado.errors }}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Crear Unidades</button>
+            <a href="{% url 'inventario:lista_unidades' producto.pk %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

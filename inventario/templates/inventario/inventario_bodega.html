@@ -7,30 +7,47 @@
     <div class="header-actions">
         <h1>📦 {{ bodega.nombre }}</h1>
         <div>
-            <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-success">➕ Entrada</a>
+            <a href="{% url 'inventario:exportar_bodega_excel' bodega.pk %}" class="btn btn-success">
+                📊 Exportar a Excel
+            </a>
+            <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-primary">➕ Entrada</a>
             <a href="{% url 'inventario:salida_producto' %}" class="btn btn-danger">➖ Salida</a>
             <a href="{% url 'inventario:lista_bodegas' %}" class="btn btn-secondary">← Volver</a>
         </div>
     </div>
 
     <p><strong>Ubicación:</strong> {{ bodega.ubicacion|default:"No especificada" }}</p>
+    <p><strong>Descripción:</strong> {{ bodega.descripcion|default:"Sin descripción" }}</p>
 
     <table>
         <thead>
             <tr>
                 <th>Código</th>
                 <th>Producto</th>
+                <th>N° Serie</th>
                 <th>Categoría</th>
                 <th>Cantidad</th>
                 <th>Stock Mínimo</th>
                 <th>Estado</th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
             {% for inventario in inventarios %}
             <tr>
                 <td>{{ inventario.producto.codigo }}</td>
-                <td><a href="{% url 'inventario:detalle_producto' inventario.producto.pk %}">{{ inventario.producto.nombre }}</a></td>
+                <td>
+                    <a href="{% url 'inventario:detalle_producto' inventario.producto.pk %}">
+                        {{ inventario.producto.nombre }}
+                    </a>
+                </td>
+                <td>
+                    {% if inventario.producto.numero_serie %}
+                        {{ inventario.producto.numero_serie }}
+                    {% else %}
+                        <span style="color: #7f8c8d;">-</span>
+                    {% endif %}
+                </td>
                 <td>{{ inventario.producto.categoria.nombre|default:"-" }}</td>
                 <td>
                     <span class="stock {% if inventario.cantidad <= inventario.stock_minimo %}stock-low{% endif %}">
@@ -40,15 +57,18 @@
                 <td>{{ inventario.stock_minimo }}</td>
                 <td>
                     {% if inventario.cantidad <= inventario.stock_minimo %}
-                        <span class="badge badge-warning">Stock bajo</span>
+                        <span class="badge badge-warning">⚠️ Bajo</span>
                     {% else %}
-                        <span class="badge badge-success">Normal</span>
+                        <span class="badge badge-success">✅ OK</span>
                     {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'inventario:detalle_producto' inventario.producto.pk %}" class="btn btn-sm btn-info">Ver</a>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" class="text-center">No hay productos en esta bodega.</td>
+                <td colspan="8" class="text-center">No hay productos en esta bodega.</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -1,0 +1,47 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ titulo }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <div class="form-group">
+            <label for="{{ form.numero_serie.id_for_label }}">Número de Serie:</label>
+            {{ form.numero_serie }}
+            {{ form.numero_serie.errors }}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.bodega.id_for_label }}">Bodega:</label>
+                {{ form.bodega }}
+                {{ form.bodega.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.estado.id_for_label }}">Estado:</label>
+                {{ form.estado }}
+                {{ form.estado.errors }}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.notas.id_for_label }}">Notas:</label>
+            {{ form.notas }}
+            {{ form.notas.errors }}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+            <a href="{% url 'inventario:lista_unidades' producto.pk %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

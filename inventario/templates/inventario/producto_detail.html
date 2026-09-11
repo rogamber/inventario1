@@ -7,42 +7,90 @@
     <div class="header-actions">
         <h1>{{ producto.nombre }}</h1>
         <div>
-            <a href="{% url 'inventario:editar_producto' producto.pk %}" class="btn btn-secondary">Editar</a>
+            <a href="{% url 'inventario:editar_producto' producto.pk %}" class="btn btn-secondary">✏️ Editar</a>
+            <a href="{% url 'inventario:eliminar_producto' producto.pk %}" class="btn btn-danger">🗑️ Eliminar</a>
+            <a href="{% url 'inventario:lista_productos' %}" class="btn btn-info">← Volver</a>
         </div>
     </div>
 
     <div class="detail-grid">
+        <!-- Información del Producto -->
         <div class="detail-card">
-            <h3>Información del Producto</h3>
+            <h3>📋 Información del Producto</h3>
             <p><strong>Código:</strong> {{ producto.codigo }}</p>
-            <p><strong>Número de Serie:</strong> 
-                {% if producto.numero_serie %}
-                    {{ producto.numero_serie }}
-                {% else %}
-                    <span style="color: #7f8c8d;">Sin número de serie</span>
-                {% endif %}
-            </p>
             <p><strong>Categoría:</strong> {{ producto.categoria.nombre|default:"Sin categoría" }}</p>
             <p><strong>Descripción:</strong> {{ producto.descripcion|default:"Sin descripción" }}</p>
             <p><strong>Precio venta:</strong> ${{ producto.precio }}</p>
             <p><strong>Precio costo:</strong> ${{ producto.precio_costo }}</p>
             <p><strong>Stock mínimo:</strong> {{ producto.stock_minimo }}</p>
-            <p><strong>Stock total:</strong> 
+            <p>
+                <strong>Maneja Serie:</strong>
+                {% if producto.maneja_serie %}
+                    <span class="badge badge-success">✅ Sí</span>
+                {% else %}
+                    <span class="badge badge-danger">❌ No</span>
+                {% endif %}
+            </p>
+            <p>
+                <strong>Stock Total:</strong>
                 <span class="stock {% if stock_total <= producto.stock_minimo %}stock-low{% endif %}">
                     {{ stock_total }}
                 </span>
             </p>
         </div>
 
+        <!-- Gestionar Stock -->
         <div class="detail-card">
-            <h3>Gestionar Stock</h3>
-            <div class="stock-actions">
-                <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-success">➕ Entrada</a>
-                <a href="{% url 'inventario:salida_producto' %}" class="btn btn-danger">➖ Salida</a>
-                <a href="{% url 'inventario:traslado_producto' %}" class="btn btn-info">🔄 Traslado</a>
-            </div>
+            <h3>⚙️ Gestionar Stock</h3>
+            {% if producto.maneja_serie %}
+                <p style="color: #7f8c8d; font-size: 0.9rem;">
+                    Este producto maneja número de serie. Gestiona sus unidades individuales.
+                </p>
+                <div class="stock-actions">
+                    <a href="{% url 'inventario:lista_unidades' producto.pk %}" class="btn btn-warning">
+                        🔢 Ver Unidades ({{ producto.unidades.count }})
+                    </a>
+                    <a href="{% url 'inventario:crear_unidad' producto.pk %}" class="btn btn-primary">
+                        ➕ Nueva Unidad
+                    </a>
+                    <a href="{% url 'inventario:crear_unidades_masivas' producto.pk %}" class="btn btn-success">
+                        📦 Crear Múltiples
+                    </a>
+                </div>
+            {% else %}
+                <p style="color: #7f8c8d; font-size: 0.9rem;">
+                    Este producto no maneja número de serie. Usa los movimientos normales.
+                </p>
+                <div class="stock-actions">
+                    <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-success">➕ Entrada</a>
+                    <a href="{% url 'inventario:salida_producto' %}" class="btn btn-danger">➖ Salida</a>
+                    <a href="{% url 'inventario:traslado_producto' %}" class="btn btn-info">🔄 Traslado</a>
+                </div>
+            {% endif %}
         </div>
     </div>
+
+    <!-- Tarjeta de Gestión de Unidades (solo si maneja serie) -->
+    {% if producto.maneja_serie %}
+    <div class="detail-card" style="border-left: 4px solid #f39c12; margin-top: 20px;">
+        <h3>🔢 Gestión de Unidades</h3>
+        <p>Este producto maneja número de serie único por unidad. Actualmente tiene
+            <strong>{{ producto.unidades.count }}</strong> unidades registradas.
+        </p>
+        
+        <div class="stock-actions">
+            <a href="{% url 'inventario:lista_unidades' producto.pk %}" class="btn btn-warning">
+                🔢 Ver Todas las Unidades
+            </a>
+            <a href="{% url 'inventario:crear_unidad' producto.pk %}" class="btn btn-primary">
+                ➕ Registrar Nueva Unidad
+            </a>
+            <a href="{% url 'inventario:crear_unidades_masivas' producto.pk %}" class="btn btn-success">
+                📦 Registrar Múltiples Unidades
+            </a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Stock por Bodega -->
     <div class="movements">
@@ -70,9 +118,9 @@
                     <td>{{ inv.stock_minimo }}</td>
                     <td>
                         {% if inv.cantidad <= inv.stock_minimo %}
-                            <span class="badge badge-warning">Stock bajo</span>
+                            <span class="badge badge-warning">⚠️ Bajo</span>
                         {% else %}
-                            <span class="badge badge-success">Normal</span>
+                            <span class="badge badge-success">✅ OK</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -85,6 +133,50 @@
         </table>
     </div>
 
+    <!-- Unidades registradas (vista rápida) -->
+    {% if producto.maneja_serie and producto.unidades.exists %}
+    <div class="movements">
+        <h2>🔢 Últimas Unidades Registradas</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° Serie</th>
+                    <th>Bodega</th>
+                    <th>Estado</th>
+                    <th>Fecha Ingreso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for unidad in producto.unidades.all|slice:":5" %}
+                <tr>
+                    <td><strong>{{ unidad.numero_serie }}</strong></td>
+                    <td>{{ unidad.bodega.nombre|default:"Sin asignar" }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if unidad.estado == 'disponible' %}badge-success
+                            {% elif unidad.estado == 'vendido' %}badge-info
+                            {% elif unidad.estado == 'dañado' %}badge-danger
+                            {% else %}badge-warning{% endif %}">
+                            {{ unidad.get_estado_display }}
+                        </span>
+                    </td>
+                    <td>{{ unidad.created_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'inventario:editar_unidad' unidad.pk %}" class="btn btn-sm btn-secondary">✏️</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top: 10px; text-align: right;">
+            <a href="{% url 'inventario:lista_unidades' producto.pk %}" class="btn btn-sm btn-info">
+                Ver todas las unidades →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Historial de Movimientos -->
     <div class="movements">
         <h2>📋 Historial de Movimientos</h2>
@@ -94,6 +186,7 @@
                     <th>Boleta</th>
                     <th>Adendum</th>
                     <th>Tipo</th>
+                    <th>Unidad</th>
                     <th>Cantidad</th>
                     <th>Bodega Origen</th>
                     <th>Bodega Destino</th>
@@ -120,6 +213,13 @@
                             {{ movimiento.get_tipo_display }}
                         </span>
                     </td>
+                    <td>
+                        {% if movimiento.unidad %}
+                            <span class="badge badge-warning">{{ movimiento.unidad.numero_serie }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td>{{ movimiento.cantidad }}</td>
                     <td>{{ movimiento.bodega_origen.nombre|default:"-" }}</td>
                     <td>{{ movimiento.bodega_destino.nombre|default:"-" }}</td>
@@ -128,7 +228,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center">No hay movimientos para este producto.</td>
+                    <td colspan="9" class="text-center">No hay movimientos para este producto.</td>
                 </tr>
                 {% endfor %}
             </tbody>
