@@ -1,6 +1,8 @@
-# inventario/forms.py
 from django import forms
-from .models import Producto, Movimiento, Bodega, Inventario, Categoria
+from .models import (
+    Producto, Movimiento, Bodega, Inventario, Categoria,
+    MovimientoMasivo, Unidad
+)
 
 
 class ProductoForm(forms.ModelForm):
@@ -8,7 +10,8 @@ class ProductoForm(forms.ModelForm):
         min_value=0,
         initial=0,
         required=False,
-        label='Cantidad inicial'
+        label='Cantidad inicial',
+        help_text='Solo para productos que NO manejan número de serie'
     )
     bodega_inicial = forms.ModelChoiceField(
         queryset=Bodega.objects.filter(activa=True),
@@ -20,26 +23,22 @@ class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto
         fields = [
-            'nombre', 'descripcion', 'categoria', 'precio', 
-            'precio_costo', 'codigo', 'numero_serie', 'stock_minimo'  # <--- Agregar numero_serie
+            'nombre', 'descripcion', 'categoria', 'precio',
+            'precio_costo', 'codigo', 'maneja_serie', 'stock_minimo'
         ]
         widgets = {
             'descripcion': forms.Textarea(attrs={'rows': 3}),
-            'numero_serie': forms.TextInput(attrs={
-                'placeholder': 'Opcional - Ej: SN-12345-ABC'
+            'maneja_serie': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'style': 'transform: scale(1.5); margin-right: 10px;'
             }),
         }
-    
-    def clean(self):
-        cleaned_data = super().clean()
-        cantidad = cleaned_data.get('cantidad_inicial')
-        bodega = cleaned_data.get('bodega_inicial')
-        
-        if cantidad and cantidad > 0 and not bodega:
-            raise forms.ValidationError('Si ingresas una cantidad inicial, debes seleccionar una bodega.')
-        
-        return cleaned_data
-
+        labels = {
+            'maneja_serie': '¿Maneja número de serie?',
+        }
+        help_texts = {
+            'maneja_serie': 'Marcar si cada unidad física tiene un número de serie único.',
+        }
 
 class MovimientoForm(forms.ModelForm):
     class Meta:
@@ -75,7 +74,7 @@ class SalidaForm(MovimientoForm):
         self.tipo_movimiento = Movimiento.TIPO_SALIDA
         self.fields['bodega_destino'].widget = forms.HiddenInput()
         self.fields['bodega_origen'].label = 'Bodega de origen'
-        self.fields['numero_adendum'].required = True  # <--- Obligatorio para salidas
+        self.fields['numero_adendum'].required = True
         self.fields['numero_adendum'].label = 'Número de Adendum'
         self.fields['numero_adendum'].help_text = 'Número del adendum que justifica esta salida'
         del self.fields['bodega_destino']
@@ -100,9 +99,13 @@ class InventarioForm(forms.ModelForm):
         model = Inventario
         fields = ['producto', 'bodega', 'cantidad', 'stock_minimo']
 
+
+# ============================================================
+# MOVIMIENTOS MASIVOS
+# ============================================================
+
 class MovimientoMasivoForm(forms.Form):
     """Formulario para registrar movimientos masivos"""
-    
     producto = forms.ModelChoiceField(
         queryset=Producto.objects.all(),
         label='Producto',
@@ -113,7 +116,7 @@ class MovimientoMasivoForm(forms.Form):
         label='Cantidad',
         widget=forms.NumberInput(attrs={'class': 'form-control cantidad-input', 'min': 1})
     )
-    numero_serie = forms.CharField(  # <--- NUEVO
+    numero_serie = forms.CharField(
         max_length=100,
         required=False,
         label='N° Serie (Opcional)',
@@ -122,8 +125,6 @@ class MovimientoMasivoForm(forms.Form):
 
 
 class EntradaMasivaForm(forms.Form):
-    """Formulario principal para entrada masiva"""
-    
     bodega_destino = forms.ModelChoiceField(
         queryset=Bodega.objects.filter(activa=True),
         label='Bodega de destino',
@@ -143,8 +144,6 @@ class EntradaMasivaForm(forms.Form):
 
 
 class SalidaMasivaForm(forms.Form):
-    """Formulario principal para salida masiva"""
-    
     bodega_origen = forms.ModelChoiceField(
         queryset=Bodega.objects.filter(activa=True),
         label='Bodega de origen',
@@ -162,9 +161,8 @@ class SalidaMasivaForm(forms.Form):
         widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
     )
 
+
 class TrasladoMasivoForm(forms.Form):
-    """Formulario principal para traslado masivo"""
-    
     bodega_origen = forms.ModelChoiceField(
         queryset=Bodega.objects.filter(activa=True),
         label='Bodega de origen',
@@ -196,3 +194,59 @@ class TrasladoMasivoForm(forms.Form):
             raise forms.ValidationError('Las bodegas de origen y destino deben ser diferentes.')
         
         return cleaned_data
+
+
+
+# ============================================================
+# UNIDADES (productos con número de serie)
+# ============================================================
+
+class UnidadForm(forms.ModelForm):
+    class Meta:
+        model = Unidad
+        fields = ['numero_serie', 'bodega', 'estado', 'notas']
+        widgets = {
+            'numero_serie': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: SN-2024-001'
+            }),
+            'notas': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
+            'bodega': forms.Select(attrs={'class': 'form-control'}),
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+
+class UnidadMasivaForm(forms.Form):
+    """Formulario para agregar varias unidades de una vez"""
+    cantidad = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        label='Cantidad de unidades',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1})
+    )
+    prefijo = forms.CharField(
+        max_length=50,
+        required=False,
+        label='Prefijo del número de serie',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: SN-2024- (opcional)'
+        })
+    )
+    numero_inicial = forms.IntegerField(
+        min_value=1,
+        initial=1,
+        label='Número inicial',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1})
+    )
+    bodega = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    estado = forms.ChoiceField(
+        choices=Unidad.ESTADO_CHOICES,
+        initial='disponible',
+        label='Estado',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )

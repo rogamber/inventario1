@@ -11,11 +11,17 @@ import json
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from .forms import EntradaMasivaForm, SalidaMasivaForm
-from .models import MovimientoMasivo
+from .models import MovimientoMasivo , Unidad 
+from .forms import UnidadForm, UnidadMasivaForm
 import io
 from django.http import FileResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from django.http import HttpResponse
+from datetime import datetime
 
 # Vista de inicio de sesión personalizada
 class CustomLoginView(LoginView):
@@ -715,3 +721,457 @@ def generar_pdf_transferencia(request, pk):
     
     # Crea la respuesta HTTP con el contenido del PDF
     return FileResponse(buffer, as_attachment=True, filename=f'transferencia_{movimiento_masivo.numero_boleta}.pdf')
+
+@login_required
+def exportar_bodega_excel(request, bodega_id):
+    """Exporta el inventario de una bodega a un archivo Excel"""
+    bodega = get_object_or_404(Bodega, pk=bodega_id)
+    inventarios = Inventario.objects.filter(bodega=bodega).select_related(
+        'producto', 'producto__categoria'
+    ).order_by('producto__nombre')
+    
+    # Crear el libro de Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Bodega {bodega.nombre[:20]}"  # Excel limita a 31 caracteres
+    
+    # ============================================================
+    # ESTILOS
+    # ============================================================
+    
+    # Colores
+    color_encabezado = "2C3E50"
+    color_subtitulo = "3498DB"
+    color_alerta = "E74C3C"
+    color_normal = "F8F9FA"
+    
+    # Fuentes
+    fuente_titulo = Font(name='Calibri', size=16, bold=True, color="2C3E50")
+    fuente_subtitulo = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    fuente_encabezado = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    fuente_normal = Font(name='Calibri', size=10)
+    fuente_alerta = Font(name='Calibri', size=10, bold=True, color="E74C3C")
+    
+    # Rellenos
+    relleno_encabezado = PatternFill(start_color=color_encabezado, end_color=color_encabezado, fill_type="solid")
+    relleno_subtitulo = PatternFill(start_color=color_subtitulo, end_color=color_subtitulo, fill_type="solid")
+    relleno_alerta = PatternFill(start_color="FADBD8", end_color="FADBD8", fill_type="solid")
+    relleno_alterno = PatternFill(start_color=color_normal, end_color=color_normal, fill_type="solid")
+    
+    # Alineaciones
+    alineacion_centro = Alignment(horizontal="center", vertical="center")
+    alineacion_izquierda = Alignment(horizontal="left", vertical="center")
+    alineacion_derecha = Alignment(horizontal="right", vertical="center")
+    
+    # Bordes
+    borde_fino = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC')
+    )
+    
+    # ============================================================
+    # ENCABEZADO DEL REPORTE
+    # ============================================================
+    
+    # Título principal
+    ws.merge_cells('A1:G1')
+    celda_titulo = ws['A1']
+    celda_titulo.value = f"📦 INVENTARIO DE BODEGA: {bodega.nombre.upper()}"
+    celda_titulo.font = fuente_titulo
+    celda_titulo.alignment = alineacion_centro
+    ws.row_dimensions[1].height = 30
+    
+    # Información de la bodega
+    ws.merge_cells('A2:G2')
+    celda_info = ws['A2']
+    celda_info.value = f"Ubicación: {bodega.ubicacion or 'No especificada'}"
+    celda_info.font = Font(name='Calibri', size=10, italic=True, color="7F8C8D")
+    celda_info.alignment = alineacion_centro
+    ws.row_dimensions[2].height = 20
+    
+    # Fecha de generación
+    ws.merge_cells('A3:G3')
+    celda_fecha = ws['A3']
+    celda_fecha.value = f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    celda_fecha.font = Font(name='Calibri', size=9, color="7F8C8D")
+    celda_fecha.alignment = alineacion_centro
+    ws.row_dimensions[3].height = 18
+    
+    # Fila vacía
+    ws.row_dimensions[4].height = 10
+    
+    # ============================================================
+    # ENCABEZADOS DE LA TABLA (Fila 5)
+    # ============================================================
+    
+    encabezados = [
+        'N°', 'Código', 'Producto', 'Categoría', 'N° Serie', 
+        'Cantidad', 'Stock Mínimo', 'Estado'
+    ]
+    
+    # Ajustar a 8 columnas (A-H)
+    for col_num, encabezado in enumerate(encabezados, 1):
+        celda = ws.cell(row=5, column=col_num, value=encabezado)
+        celda.font = fuente_encabezado
+        celda.fill = relleno_encabezado
+        celda.alignment = alineacion_centro
+        celda.border = borde_fino
+    
+    ws.row_dimensions[5].height = 25
+    
+    # ============================================================
+    # DATOS (Desde la fila 6)
+    # ============================================================
+    
+    fila_actual = 6
+    total_items = 0
+    productos_bajo_stock = 0
+    
+    for index, inv in enumerate(inventarios, 1):
+        producto = inv.producto
+        
+        # Verificar si está bajo stock
+        es_bajo_stock = inv.cantidad <= inv.stock_minimo
+        if es_bajo_stock:
+            productos_bajo_stock += 1
+        
+        total_items += inv.cantidad
+        
+        # Datos
+        datos = [
+            index,
+            producto.codigo,
+            producto.nombre,
+            producto.categoria.nombre if producto.categoria else '-',
+            producto.numero_serie or '-',
+            inv.cantidad,
+            inv.stock_minimo,
+            '⚠️ BAJO' if es_bajo_stock else '✅ OK'
+        ]
+        
+        for col_num, valor in enumerate(datos, 1):
+            celda = ws.cell(row=fila_actual, column=col_num, value=valor)
+            celda.font = fuente_alerta if es_bajo_stock else fuente_normal
+            celda.border = borde_fino
+            
+            # Alineación según el tipo
+            if col_num in [1, 6, 7, 8]:
+                celda.alignment = alineacion_centro
+            elif col_num == 4:
+                celda.alignment = alineacion_izquierda
+            else:
+                celda.alignment = alineacion_izquierda
+            
+            # Fondo alternado o de alerta
+            if es_bajo_stock:
+                celda.fill = relleno_alerta
+            elif index % 2 == 0:
+                celda.fill = relleno_alterno
+        
+        fila_actual += 1
+    
+    # ============================================================
+    # FILA DE TOTALES
+    # ============================================================
+    
+    fila_actual += 1
+    
+    # Total de productos
+    ws.merge_cells(f'A{fila_actual}:D{fila_actual}')
+    celda_total_label = ws[f'A{fila_actual}']
+    celda_total_label.value = "TOTAL DE PRODUCTOS:"
+    celda_total_label.font = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    celda_total_label.fill = relleno_subtitulo
+    celda_total_label.alignment = alineacion_derecha
+    celda_total_label.border = borde_fino
+    
+    celda_total = ws[f'E{fila_actual}']
+    celda_total.value = len(inventarios)
+    celda_total.font = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    celda_total.fill = relleno_subtitulo
+    celda_total.alignment = alineacion_centro
+    celda_total.border = borde_fino
+    
+    celda_items_label = ws[f'F{fila_actual}']
+    celda_items_label.value = "TOTAL ITEMS:"
+    celda_items_label.font = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    celda_items_label.fill = relleno_subtitulo
+    celda_items_label.alignment = alineacion_derecha
+    celda_items_label.border = borde_fino
+    
+    celda_items = ws[f'G{fila_actual}']
+    celda_items.value = total_items
+    celda_items.font = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
+    celda_items.fill = relleno_subtitulo
+    celda_items.alignment = alineacion_centro
+    celda_items.border = borde_fino
+    
+    celda_estado = ws[f'H{fila_actual}']
+    celda_estado.value = f"⚠️ {productos_bajo_stock} bajo stock" if productos_bajo_stock > 0 else "✅ Todo OK"
+    celda_estado.font = Font(name='Calibri', size=10, bold=True, color="FFFFFF")
+    celda_estado.fill = relleno_alerta if productos_bajo_stock > 0 else relleno_subtitulo
+    celda_estado.alignment = alineacion_centro
+    celda_estado.border = borde_fino
+    
+    ws.row_dimensions[fila_actual].height = 25
+    
+    # ============================================================
+    # AJUSTAR ANCHO DE COLUMNAS
+    # ============================================================
+    
+    anchos = {
+        'A': 6,   # N°
+        'B': 15,  # Código
+        'C': 35,  # Producto
+        'D': 20,  # Categoría
+        'E': 20,  # N° Serie
+        'F': 12,  # Cantidad
+        'G': 12,  # Stock Mínimo
+        'H': 15,  # Estado
+    }
+    
+    for col, ancho in anchos.items():
+        ws.column_dimensions[col].width = ancho
+    
+    # Congelar la fila de encabezados
+    ws.freeze_panes = 'A6'
+    
+    # ============================================================
+    # CREAR LA RESPUESTA HTTP
+    # ============================================================
+    
+    # Nombre del archivo
+    nombre_archivo = f"inventario_{bodega.nombre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+    
+    # Configurar respuesta
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+    
+    # Guardar el libro en la respuesta
+    wb.save(response)
+    
+    return response
+
+# ============================================================
+# GESTIÓN DE UNIDADES (productos con número de serie)
+# ============================================================
+
+@login_required
+def lista_unidades(request, producto_id):
+    """Lista todas las unidades de un producto"""
+    producto = get_object_or_404(Producto, pk=producto_id)
+    unidades = Unidad.objects.filter(producto=producto).select_related('bodega')
+    
+    # Estadísticas
+    total = unidades.count()
+    disponibles = unidades.filter(estado='disponible').count()
+    vendidos = unidades.filter(estado='vendido').count()
+    dañados = unidades.filter(estado='dañado').count()
+    reservados = unidades.filter(estado='reservado').count()
+    
+    context = {
+        'producto': producto,
+        'unidades': unidades,
+        'total': total,
+        'disponibles': disponibles,
+        'vendidos': vendidos,
+        'dañados': dañados,
+        'reservados': reservados,
+    }
+    return render(request, 'inventario/unidad_list.html', context)
+
+
+@login_required
+def crear_unidad(request, producto_id):
+    """Crea una unidad individual para un producto"""
+    producto = get_object_or_404(Producto, pk=producto_id)
+    
+    if not producto.maneja_serie:
+        messages.error(request, 'Este producto no maneja número de serie.')
+        return redirect('inventario:detalle_producto', pk=producto.pk)
+    
+    if request.method == 'POST':
+        form = UnidadForm(request.POST)
+        if form.is_valid():
+            unidad = form.save(commit=False)
+            unidad.producto = producto
+            unidad.save()
+            
+            # Actualizar inventario
+            if unidad.bodega:
+                inventario, created = Inventario.objects.get_or_create(
+                    producto=producto,
+                    bodega=unidad.bodega,
+                    defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
+                )
+                inventario.cantidad += 1
+                inventario.save()
+            
+            messages.success(request, f'Unidad "{unidad.numero_serie}" creada correctamente.')
+            return redirect('inventario:lista_unidades', producto_id=producto.pk)
+    else:
+        form = UnidadForm()
+    
+    context = {
+        'form': form,
+        'producto': producto,
+        'titulo': f'Nueva Unidad - {producto.nombre}',
+    }
+    return render(request, 'inventario/unidad_form.html', context)
+
+
+@login_required
+def crear_unidades_masivas(request, producto_id):
+    """Crea varias unidades a la vez"""
+    producto = get_object_or_404(Producto, pk=producto_id)
+    
+    if not producto.maneja_serie:
+        messages.error(request, 'Este producto no maneja número de serie.')
+        return redirect('inventario:detalle_producto', pk=producto.pk)
+    
+    if request.method == 'POST':
+        form = UnidadMasivaForm(request.POST)
+        if form.is_valid():
+            cantidad = form.cleaned_data['cantidad']
+            prefijo = form.cleaned_data.get('prefijo', '')
+            numero_inicial = form.cleaned_data['numero_inicial']
+            bodega = form.cleaned_data['bodega']
+            estado = form.cleaned_data['estado']
+            
+            creadas = 0
+            errores = []
+            
+            for i in range(cantidad):
+                numero = numero_inicial + i
+                numero_serie = f"{prefijo}{numero:04d}"
+                
+                # Verificar que no exista
+                if Unidad.objects.filter(numero_serie=numero_serie).exists():
+                    errores.append(f"'{numero_serie}' ya existe")
+                    continue
+                
+                try:
+                    Unidad.objects.create(
+                        producto=producto,
+                        numero_serie=numero_serie,
+                        bodega=bodega,
+                        estado=estado
+                    )
+                    creadas += 1
+                except Exception as e:
+                    errores.append(f"Error con '{numero_serie}': {str(e)}")
+            
+            # Actualizar inventario
+            if creadas > 0 and bodega:
+                inventario, created = Inventario.objects.get_or_create(
+                    producto=producto,
+                    bodega=bodega,
+                    defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
+                )
+                inventario.cantidad += creadas
+                inventario.save()
+            
+            if errores:
+                for error in errores:
+                    messages.warning(request, error)
+            
+            if creadas > 0:
+                messages.success(request, f'✅ {creadas} unidades creadas correctamente.')
+            
+            return redirect('inventario:lista_unidades', producto_id=producto.pk)
+    else:
+        form = UnidadMasivaForm()
+    
+    context = {
+        'form': form,
+        'producto': producto,
+        'titulo': f'Crear Unidades Masivas - {producto.nombre}',
+    }
+    return render(request, 'inventario/unidad_masiva_form.html', context)
+
+
+@login_required
+def editar_unidad(request, pk):
+    """Edita una unidad existente"""
+    unidad = get_object_or_404(Unidad, pk=pk)
+    producto = unidad.producto
+    bodega_anterior = unidad.bodega
+    
+    if request.method == 'POST':
+        form = UnidadForm(request.POST, instance=unidad)
+        if form.is_valid():
+            unidad = form.save()
+            
+            # Actualizar inventario si cambió de bodega
+            if bodega_anterior != unidad.bodega:
+                # Restar de la bodega anterior
+                if bodega_anterior:
+                    try:
+                        inv_anterior = Inventario.objects.get(
+                            producto=producto,
+                            bodega=bodega_anterior
+                        )
+                        inv_anterior.cantidad -= 1
+                        inv_anterior.save()
+                    except Inventario.DoesNotExist:
+                        pass
+                
+                # Sumar a la nueva bodega
+                if unidad.bodega:
+                    inv_nueva, created = Inventario.objects.get_or_create(
+                        producto=producto,
+                        bodega=unidad.bodega,
+                        defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
+                    )
+                    inv_nueva.cantidad += 1
+                    inv_nueva.save()
+            
+            messages.success(request, f'Unidad "{unidad.numero_serie}" actualizada.')
+            return redirect('inventario:lista_unidades', producto_id=producto.pk)
+    else:
+        form = UnidadForm(instance=unidad)
+    
+    context = {
+        'form': form,
+        'unidad': unidad,
+        'producto': producto,
+        'titulo': f'Editar Unidad - {unidad.numero_serie}',
+    }
+    return render(request, 'inventario/unidad_form.html', context)
+
+
+@login_required
+def eliminar_unidad(request, pk):
+    """Elimina una unidad"""
+    unidad = get_object_or_404(Unidad, pk=pk)
+    producto = unidad.producto
+    bodega = unidad.bodega
+    
+    if request.method == 'POST':
+        numero_serie = unidad.numero_serie
+        unidad.delete()
+        
+        # Actualizar inventario
+        if bodega:
+            try:
+                inventario = Inventario.objects.get(
+                    producto=producto,
+                    bodega=bodega
+                )
+                inventario.cantidad -= 1
+                inventario.save()
+            except Inventario.DoesNotExist:
+                pass
+        
+        messages.success(request, f'Unidad "{numero_serie}" eliminada.')
+        return redirect('inventario:lista_unidades', producto_id=producto.pk)
+    
+    context = {
+        'unidad': unidad,
+        'producto': producto,
+    }
+    return render(request, 'inventario/unidad_confirm_delete.html', context)

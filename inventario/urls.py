@@ -31,7 +31,17 @@ urlpatterns = [
     path('movimiento/masivo/traslado/', views.traslado_masivo, name='traslado_masivo'),
     path('movimientos/masivos/', views.lista_movimientos_masivos, name='lista_movimientos_masivos'),
     path('movimiento/masivo/<int:pk>/pdf/', views.generar_pdf_transferencia, name='pdf_transferencia'),
+
+    # Exportar Excel
+    path('bodega/<int:bodega_id>/exportar-excel/', views.exportar_bodega_excel, name='exportar_bodega_excel'),
     
     # Resumen
     path('resumen/', views.resumen_inventario, name='resumen_inventario'),
+
+    # Unidades (productos con serie)
+    path('producto/<int:producto_id>/unidades/', views.lista_unidades, name='lista_unidades'),
+    path('producto/<int:producto_id>/unidad/nueva/', views.crear_unidad, name='crear_unidad'),
+    path('producto/<int:producto_id>/unidades/masivas/', views.crear_unidades_masivas, name='crear_unidades_masivas'),
+    path('unidad/<int:pk>/editar/', views.editar_unidad, name='editar_unidad'),
+    path('unidad/<int:pk>/eliminar/', views.eliminar_unidad, name='eliminar_unidad'),
 ]
