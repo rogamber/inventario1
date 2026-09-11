@@ -959,3 +959,21 @@ footer p {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* ============================================================
+   CHECKBOX PERSONALIZADO
+   ============================================================ */
+input[type="checkbox"] {
+    display: inline-block !important;
+    width: 18px !important;
+    height: 18px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    cursor: pointer;
+    accent-color: #3498db;
+}
+
+.form-group label {
+    cursor: pointer;
+    user-select: none;
+}
