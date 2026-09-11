@@ -79,3 +79,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'login'
 LOGOUT_REDIRECT_URL = 'login'
+
+
+# ============================================================
+# CONFIGURACIÓN DE SESIONES
+# ============================================================
+
+# Tiempo de inactividad permitido (en segundos)
+# 5 minutos = 5 * 60 = 300 segundos
+SESSION_COOKIE_AGE = 300
+
+# Actualiza la sesión en cada petición del usuario
+# Esto reinicia el contador de inactividad con cada acción
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Expira la sesión al cerrar el navegador (opcional pero recomendado)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
