@@ -5,8 +5,11 @@
 {% block content %}
 <div class="movement-detail">
     <div class="header-actions">
-        <h1>📋 Detalle del Movimiento Masivo</h1>
-        <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
+       <h1>📋 Detalle del Movimiento Masivo</h1>
+       <div>
+          <a href="{% url 'inventario:pdf_transferencia' movimiento_masivo.pk %}" class="btn btn-primary" target="_blank">📄 Generar PDF</a>
+          <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
+      </div>
     </div>
     
     <div class="detail-card">

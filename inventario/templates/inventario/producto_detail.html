@@ -1,51 +1,138 @@
-<!-- En la tabla de historial de movimientos -->
-<p><strong>Código:</strong> {{ producto.codigo }}</p>
-    <p><strong>Número de Serie:</strong> 
-     {% if producto.numero_serie %}
-         {{ producto.numero_serie }}
-     {% else %}
-        <span style="color: #7f8c8d;">Sin número de serie</span>
-     {% endif %}
+{% extends 'inventario/base.html' %}
 
-<thead>
-    <tr>
-        <th>Boleta</th>
-        <th>Adendum</th>
-        <th>Tipo</th>
-        <th>Cantidad</th>
-        <th>Bodega Origen</th>
-        <th>Bodega Destino</th>
-        <th>Usuario</th>
-        <th>Fecha</th>
-    </tr>
-</thead>
-<tbody>
-    {% for movimiento in movimientos %}
-    <tr>
-        <td>{{ movimiento.numero_boleta }}</td>
-        <td>
-            {% if movimiento.numero_adendum %}
-                <span class="badge badge-info">{{ movimiento.numero_adendum }}</span>
-            {% else %}
-                -
-            {% endif %}
-        </td>
-        <td>
-            <span class="badge {% if movimiento.tipo == 'ENT' %}badge-success{% elif movimiento.tipo == 'SAL' %}badge-danger{% else %}badge-info{% endif %}">
-                {{ movimiento.get_tipo_display }}
-            </span>
-        </td>
-        <td>{{ movimiento.cantidad }}</td>
-        <td>{{ movimiento.bodega_origen.nombre|default:"-" }}</td>
-        <td>{{ movimiento.bodega_destino.nombre|default:"-" }}</td>
-        <td>{{ movimiento.usuario.username|default:"-" }}</td>
-        <td>{{ movimiento.created_at|date:"d/m/Y H:i" }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="8" class="text-center">No hay movimientos para este producto.</td>
-    </tr>
-    {% endfor %}
-    
-</p>
-</tbody>
+{% block title %}{{ producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="product-detail">
+    <div class="header-actions">
+        <h1>{{ producto.nombre }}</h1>
+        <div>
+            <a href="{% url 'inventario:editar_producto' producto.pk %}" class="btn btn-secondary">Editar</a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>Información del Producto</h3>
+            <p><strong>Código:</strong> {{ producto.codigo }}</p>
+            <p><strong>Número de Serie:</strong> 
+                {% if producto.numero_serie %}
+                    {{ producto.numero_serie }}
+                {% else %}
+                    <span style="color: #7f8c8d;">Sin número de serie</span>
+                {% endif %}
+            </p>
+            <p><strong>Categoría:</strong> {{ producto.categoria.nombre|default:"Sin categoría" }}</p>
+            <p><strong>Descripción:</strong> {{ producto.descripcion|default:"Sin descripción" }}</p>
+            <p><strong>Precio venta:</strong> ${{ producto.precio }}</p>
+            <p><strong>Precio costo:</strong> ${{ producto.precio_costo }}</p>
+            <p><strong>Stock mínimo:</strong> {{ producto.stock_minimo }}</p>
+            <p><strong>Stock total:</strong> 
+                <span class="stock {% if stock_total <= producto.stock_minimo %}stock-low{% endif %}">
+                    {{ stock_total }}
+                </span>
+            </p>
+        </div>
+
+        <div class="detail-card">
+            <h3>Gestionar Stock</h3>
+            <div class="stock-actions">
+                <a href="{% url 'inventario:entrada_producto' %}" class="btn btn-success">➕ Entrada</a>
+                <a href="{% url 'inventario:salida_producto' %}" class="btn btn-danger">➖ Salida</a>
+                <a href="{% url 'inventario:traslado_producto' %}" class="btn btn-info">🔄 Traslado</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock por Bodega -->
+    <div class="movements">
+        <h2>📦 Stock por Bodega</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bodega</th>
+                    <th>Ubicación</th>
+                    <th>Cantidad</th>
+                    <th>Stock Mínimo</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in inventarios %}
+                <tr>
+                    <td>{{ inv.bodega.nombre }}</td>
+                    <td>{{ inv.bodega.ubicacion|default:"-" }}</td>
+                    <td>
+                        <span class="stock {% if inv.cantidad <= inv.stock_minimo %}stock-low{% endif %}">
+                            {{ inv.cantidad }}
+                        </span>
+                    </td>
+                    <td>{{ inv.stock_minimo }}</td>
+                    <td>
+                        {% if inv.cantidad <= inv.stock_minimo %}
+                            <span class="badge badge-warning">Stock bajo</span>
+                        {% else %}
+                            <span class="badge badge-success">Normal</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">Este producto no tiene stock en ninguna bodega.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Historial de Movimientos -->
+    <div class="movements">
+        <h2>📋 Historial de Movimientos</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Boleta</th>
+                    <th>Adendum</th>
+                    <th>Tipo</th>
+                    <th>Cantidad</th>
+                    <th>Bodega Origen</th>
+                    <th>Bodega Destino</th>
+                    <th>Usuario</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movimiento in movimientos %}
+                <tr>
+                    <td>{{ movimiento.numero_boleta }}</td>
+                    <td>
+                        {% if movimiento.numero_adendum %}
+                            <span class="badge badge-info">{{ movimiento.numero_adendum }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge 
+                            {% if movimiento.tipo == 'ENT' %}badge-success
+                            {% elif movimiento.tipo == 'SAL' %}badge-danger
+                            {% else %}badge-info{% endif %}">
+                            {{ movimiento.get_tipo_display }}
+                        </span>
+                    </td>
+                    <td>{{ movimiento.cantidad }}</td>
+                    <td>{{ movimiento.bodega_origen.nombre|default:"-" }}</td>
+                    <td>{{ movimiento.bodega_destino.nombre|default:"-" }}</td>
+                    <td>{{ movimiento.usuario.username|default:"-" }}</td>
+                    <td>{{ movimiento.created_at|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center">No hay movimientos para este producto.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
