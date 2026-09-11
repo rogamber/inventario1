@@ -5,7 +5,7 @@ from inventario import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.index, name='index'),
+    path('', views.CustomLoginView.as_view(), name='login'),
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('inventario/', include('inventario.urls')),
