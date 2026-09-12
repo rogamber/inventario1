@@ -5,11 +5,11 @@
 {% block content %}
 <div class="movement-detail">
     <div class="header-actions">
-       <h1>📋 Detalle del Movimiento Masivo</h1>
-       <div>
-          <a href="{% url 'inventario:pdf_transferencia' movimiento_masivo.pk %}" class="btn btn-primary" target="_blank">📄 Generar PDF</a>
-          <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
-      </div>
+        <h1>📋 Detalle del Movimiento Masivo</h1>
+        <div>
+            <a href="{% url 'inventario:pdf_transferencia' movimiento_masivo.pk %}" class="btn btn-primary" target="_blank">📄 Generar PDF</a>
+            <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
+        </div>
     </div>
     
     <div class="detail-card">
@@ -36,7 +36,7 @@
         <p><strong>Descripción:</strong> {{ movimiento_masivo.descripcion|default:"-" }}</p>
         <p><strong>Usuario:</strong> {{ movimiento_masivo.usuario.username|default:"-" }}</p>
         <p><strong>Fecha:</strong> {{ movimiento_masivo.created_at|date:"d/m/Y H:i" }}</p>
-        <p><strong>Total de productos:</strong> {{ movimientos_detalle.count }}</p>
+        <p><strong>Total de items:</strong> {{ movimientos_detalle.count }}</p>
     </div>
 
     <div class="movements">
@@ -44,6 +44,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>#</th>
                     <th>Producto</th>
                     <th>Código</th>
                     <th>N° Serie</th>
@@ -53,11 +54,12 @@
             <tbody>
                 {% for mov in movimientos_detalle %}
                 <tr>
+                    <td>{{ forloop.counter }}</td>
                     <td>{{ mov.producto.nombre }}</td>
                     <td>{{ mov.producto.codigo }}</td>
                     <td>
-                        {% if mov.producto.numero_serie %}
-                            {{ mov.producto.numero_serie }}
+                        {% if mov.unidad %}
+                            <span class="badge badge-warning">{{ mov.unidad.numero_serie }}</span>
                         {% else %}
                             <span style="color: #7f8c8d;">-</span>
                         {% endif %}
@@ -66,7 +68,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-center">No hay productos en este movimiento.</td>
+                    <td colspan="5" class="text-center">No hay productos en este movimiento.</td>
                 </tr>
                 {% endfor %}
             </tbody>
