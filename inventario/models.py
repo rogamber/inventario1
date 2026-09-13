@@ -188,6 +188,17 @@ class EstadoUnidad(models.Model):
 
 class Unidad(models.Model):
     """Instancia física de un producto que maneja número de serie"""
+
+    # Condiciones de la unidad
+    CONDICION_NUEVO = 'nuevo'
+    CONDICION_USADO = 'usado'
+    CONDICION_REPARADO = 'reparado'
+    
+    CONDICION_CHOICES = [
+        (CONDICION_NUEVO, 'Nuevo'),
+        (CONDICION_USADO, 'Usado'),
+        (CONDICION_REPARADO, 'Reparado'),
+    ]
     
     producto = models.ForeignKey(
         Producto,
@@ -214,6 +225,14 @@ class Unidad(models.Model):
         blank=True,
         verbose_name='Estado'
     )
+    # NUEVO: Condición de la unidad
+    condicion = models.CharField(
+        max_length=20,
+        choices=CONDICION_CHOICES,
+        default=CONDICION_NUEVO,
+        verbose_name='Condición'
+    )
+    
     notas = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -440,6 +459,85 @@ class Movimiento(models.Model):
         ordering = ['-created_at']
 
 # ============================================================
+# CONTRATO
+# ============================================================
+
+class Contrato(models.Model):
+    """Contratos asociados a clientes"""
+    
+    ESTADO_ACTIVO = 'activo'
+    ESTADO_SUSPENDIDO = 'suspendido'
+    ESTADO_FINALIZADO = 'finalizado'
+    
+    ESTADO_CHOICES = [
+        (ESTADO_ACTIVO, 'Activo'),
+        (ESTADO_SUSPENDIDO, 'Suspendido'),
+        (ESTADO_FINALIZADO, 'Finalizado'),
+    ]
+    
+    numero_contrato = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Número de Contrato'
+    )
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='contratos',
+        verbose_name='Cliente'
+    )
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_ACTIVO,
+        verbose_name='Estado'
+    )
+    fecha_inicio = models.DateField(
+        verbose_name='Fecha de Inicio'
+    )
+    fecha_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de Finalización',
+        help_text='Dejar en blanco si el contrato es indefinido'
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name='Descripción del Contrato'
+    )
+    monto_mensual = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto Mensual'
+    )
+    notas = models.TextField(
+        blank=True,
+        verbose_name='Notas'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.numero_contrato} - {self.cliente.nombre}"
+    
+    @property
+    def total_equipos(self):
+        """Total de equipos asociados a este contrato"""
+        return self.equipos_instalados.count()
+    
+    @property
+    def esta_activo(self):
+        """Indica si el contrato está activo"""
+        return self.estado == self.ESTADO_ACTIVO
+    
+    class Meta:
+        verbose_name = 'Contrato'
+        verbose_name_plural = 'Contratos'
+        ordering = ['-created_at']
+
+# ============================================================
 # EQUIPO INSTALADO (salidas definitivas)
 # ============================================================
 
@@ -465,6 +563,16 @@ class EquipoInstalado(models.Model):
     numero_serie = models.CharField(max_length=100, unique=True, verbose_name='Número de Serie')
     estado_final = models.CharField(max_length=50, verbose_name='Estado Final')
     notas = models.TextField(blank=True, verbose_name='Notas')
+
+    # NUEVO: Relación con contrato
+    contrato = models.ForeignKey(
+        Contrato,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='equipos_instalados',
+        verbose_name='Contrato'
+    )
     
     # Información del movimiento de salida
     numero_boleta = models.CharField(max_length=50, verbose_name='N° Boleta')
@@ -492,3 +600,103 @@ class EquipoInstalado(models.Model):
         verbose_name = 'Equipo Instalado'
         verbose_name_plural = 'Equipos Instalados'
         ordering = ['-fecha_salida']
+
+# ============================================================
+# EQUIPO DEVUELTO
+# ============================================================
+
+class EquipoDevuelto(models.Model):
+    """Equipos que han sido devueltos por el cliente"""
+    
+    ESTADO_RECIBIDO = 'recibido'
+    ESTADO_REVISADO = 'revisado'
+    ESTADO_REPARACION = 'reparacion'
+    ESTADO_BAJA = 'baja'
+    
+    ESTADO_CHOICES = [
+        (ESTADO_RECIBIDO, 'Recibido'),
+        (ESTADO_REVISADO, 'Revisado'),
+        (ESTADO_REPARACION, 'En Reparación'),
+        (ESTADO_BAJA, 'Dado de Baja'),
+    ]
+    
+    # Información del producto
+    producto_codigo = models.CharField(max_length=50, verbose_name='Código del Producto')
+    producto_nombre = models.CharField(max_length=200, verbose_name='Nombre del Producto')
+    producto_categoria = models.CharField(max_length=100, blank=True, verbose_name='Categoría')
+    
+    # Información de la unidad
+    numero_serie = models.CharField(max_length=100, verbose_name='Número de Serie')
+    estado_final = models.CharField(max_length=50, verbose_name='Estado al Devolver')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    
+    # Información del contrato y cliente
+    numero_contrato = models.CharField(max_length=50, verbose_name='N° Contrato')
+    cliente_nombre = models.CharField(max_length=200, verbose_name='Cliente')
+    
+    # Información de la devolución
+    numero_boleta_devolucion = models.CharField(max_length=50, unique=True, blank=True, verbose_name='N° Boleta de Devolución')
+    numero_adendum = models.CharField(max_length=50, blank=True, null=True, verbose_name='N° Adendum')
+    motivo_devolucion = models.TextField(blank=True, verbose_name='Motivo de Devolución')
+    estado_devolucion = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_RECIBIDO,
+        verbose_name='Estado de la Devolución'
+    )
+    
+    # Bodega donde se recibe
+    bodega_recepcion_nombre = models.CharField(max_length=100, verbose_name='Bodega de Recepción')
+    bodega_recepcion_ubicacion = models.CharField(max_length=200, blank=True, verbose_name='Ubicación')
+    
+    # Fechas y usuario
+    fecha_devolucion = models.DateTimeField(verbose_name='Fecha de Devolución')
+    usuario_recepcion = models.CharField(max_length=150, verbose_name='Usuario que Recibió')
+    
+    # Referencias
+    equipo_instalado_id = models.IntegerField(null=True, blank=True, verbose_name='ID Equipo Instalado')
+    contrato_id = models.IntegerField(null=True, blank=True, verbose_name='ID Contrato')
+    unidad_original_id = models.IntegerField(null=True, blank=True, verbose_name='ID Unidad Original')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.numero_serie} - {self.producto_nombre} (Devuelto)"
+    
+    def save(self, *args, **kwargs):
+        if not self.numero_boleta_devolucion:
+            self.numero_boleta_devolucion = self._generar_numero_boleta()
+        super().save(*args, **kwargs)
+    
+    def _generar_numero_boleta(self):
+        """Genera un número de boleta único con formato DEV-YYYYMMDD-XXXX"""
+        import datetime
+        hoy = datetime.datetime.now().strftime('%Y%m%d')
+        prefijo = f"DEV-{hoy}-"
+        
+        ultimo = EquipoDevuelto.objects.filter(
+            numero_boleta_devolucion__startswith=prefijo
+        ).order_by('-numero_boleta_devolucion').first()
+        
+        if ultimo:
+            try:
+                ultimo_numero = int(ultimo.numero_boleta_devolucion.split('-')[-1])
+                nuevo_numero = ultimo_numero + 1
+            except (ValueError, IndexError):
+                nuevo_numero = 1
+        else:
+            nuevo_numero = 1
+        
+        numero_boleta = f"{prefijo}{nuevo_numero:04d}"
+        
+        while EquipoDevuelto.objects.filter(numero_boleta_devolucion=numero_boleta).exists():
+            nuevo_numero += 1
+            numero_boleta = f"{prefijo}{nuevo_numero:04d}"
+        
+        return numero_boleta
+    
+    class Meta:
+        verbose_name = 'Equipo Devuelto'
+        verbose_name_plural = 'Equipos Devueltos'
+        ordering = ['-fecha_devolucion']

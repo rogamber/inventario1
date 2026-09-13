@@ -69,4 +69,18 @@ urlpatterns = [
     # Reporte por cliente
     path('reporte/equipos-por-cliente/', views.reporte_equipos_por_cliente, name='reporte_equipos_por_cliente'), 
     path('reporte/cliente/<int:cliente_id>/pdf/', views.generar_pdf_reporte_cliente, name='generar_pdf_reporte_cliente'),
+
+    # Contratos
+    path('contratos/', views.lista_contratos, name='lista_contratos'),
+    path('contrato/nuevo/', views.crear_contrato, name='crear_contrato'),
+    path('contrato/<int:pk>/', views.detalle_contrato, name='detalle_contrato'),
+    path('contrato/<int:pk>/editar/', views.editar_contrato, name='editar_contrato'),
+    path('contrato/<int:pk>/eliminar/', views.eliminar_contrato, name='eliminar_contrato'),
+    path('contrato/<int:pk>/cambiar-estado/', views.cambiar_estado_contrato, name='cambiar_estado_contrato'),
+
+    # Equipos Devueltos
+    path('devoluciones/', views.seleccionar_contrato_devolucion, name='seleccionar_contrato_devolucion'),
+    path('devolucion/contrato/<int:contrato_id>/', views.registrar_devolucion, name='registrar_devolucion'),
+    path('equipos-devueltos/', views.lista_equipos_devueltos, name='lista_equipos_devueltos'),
+    path('equipo-devuelto/<int:pk>/', views.detalle_equipo_devuelto, name='detalle_equipo_devuelto'),
  ]

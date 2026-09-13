@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Bodega, Categoria, Producto, Unidad,
     Inventario, MovimientoMasivo, Movimiento,
-    EstadoUnidad  # ← NUEVO
+    EstadoUnidad, EquipoInstalado, Cliente, Contrato , EquipoDevuelto
 )
 
 
@@ -80,21 +80,22 @@ class ProductoAdmin(admin.ModelAdmin):
 class UnidadAdmin(admin.ModelAdmin):
     list_display = (
         'numero_serie', 'producto', 'bodega',
-        'estado', 'created_at'
+        'estado', 'created_at' , 'condicion'
     )
-    list_filter = ('estado', 'bodega', 'producto__categoria')
+    list_filter = ('estado', 'bodega', 'producto__categoria' , 'condicion')
     search_fields = ('numero_serie', 'producto__nombre', 'producto__codigo')
     ordering = ('producto', 'numero_serie')
     list_per_page = 25
     autocomplete_fields = ('producto',)
     list_select_related = ('producto', 'bodega', 'estado')  # ← Optimización
+    list_editable = ('condicion',)  # ← Editable en línea
     
     fieldsets = (
         ('Información de la Unidad', {
             'fields': ('producto', 'numero_serie', 'bodega')
         }),
-        ('Estado', {
-            'fields': ('estado', 'notas')
+        ('Estado y Condición', {
+            'fields': ('estado', 'notas' , 'condicion')
         }),
     )
 
@@ -252,13 +253,13 @@ from .models import (
 @admin.register(EquipoInstalado)
 class EquipoInstaladoAdmin(admin.ModelAdmin):
     list_display = (
-        'numero_serie', 'producto_nombre', 'producto_codigo',
-        'estado_final', 'bodega_origen_nombre', 'numero_boleta',
-        'fecha_salida', 'usuario_salida'
+        'numero_serie', 'producto_nombre', 'cliente', 'contrato',
+        'estado_final', 'numero_boleta', 'fecha_salida' 
     )
-    list_filter = ('estado_final', 'bodega_origen_nombre', 'fecha_salida')
-    search_fields = ('numero_serie', 'producto_nombre', 'producto_codigo', 'numero_boleta')
+    list_filter = ('estado_final',  'cliente', 'contrato', 'bodega_origen_nombre', 'fecha_salida')
+    search_fields = ('numero_serie', 'producto_nombre', 'numero_boleta', 'cliente__nombre', 'contrato__numero_contrato')
     ordering = ('-fecha_salida',)
+    autocomplete_fields = ('cliente', 'contrato')
     list_per_page = 25
     readonly_fields = ('created_at',)
 
@@ -270,7 +271,7 @@ from .models import (
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'cedula', 'contacto', 'telefono', 'email', 'activo', 'total_equipos_display')
+    list_display = ('nombre', 'cedula', 'contacto', 'telefono', 'email', 'activo', 'total_equipos_display' , 'total_contratos_display')
     list_filter = ('activo',)
     search_fields = ('nombre', 'cedula', 'contacto', 'telefono', 'email')
     ordering = ('nombre',)
@@ -291,3 +292,48 @@ class ClienteAdmin(admin.ModelAdmin):
     def total_equipos_display(self, obj):
         return obj.total_equipos
     total_equipos_display.short_description = 'Equipos'
+
+    def total_contratos_display(self, obj):
+        return obj.contratos.count()
+    total_contratos_display.short_description = 'Contratos'
+
+
+
+@admin.register(Contrato)
+class ContratoAdmin(admin.ModelAdmin):
+    list_display = ('numero_contrato', 'cliente', 'estado', 'fecha_inicio', 'fecha_fin', 'monto_mensual')
+    list_filter = ('estado', 'fecha_inicio', 'cliente')
+    search_fields = ('numero_contrato', 'cliente__nombre', 'descripcion')
+    ordering = ('-created_at',)
+    autocomplete_fields = ('cliente',)
+    list_editable = ('estado',)
+    
+    fieldsets = (
+        ('Información Básica', {
+            'fields': ('numero_contrato', 'cliente', 'estado')
+        }),
+        ('Vigencia', {
+            'fields': ('fecha_inicio', 'fecha_fin', 'monto_mensual')
+        }),
+        ('Detalles', {
+            'fields': ('descripcion', 'notas')
+        }),
+    )
+
+@admin.register(EquipoDevuelto)
+class EquipoDevueltoAdmin(admin.ModelAdmin):
+    list_display = (
+        'numero_boleta_devolucion', 'numero_serie', 'producto_nombre',
+        'numero_contrato', 'cliente_nombre', 'estado_devolucion',
+        'bodega_recepcion_nombre', 'fecha_devolucion'
+    )
+    list_filter = ('estado_devolucion', 'bodega_recepcion_nombre', 'fecha_devolucion')
+    search_fields = (
+        'numero_serie', 'producto_nombre', 'producto_codigo',
+        'numero_contrato', 'cliente_nombre', 'numero_boleta_devolucion'
+    )
+    ordering = ('-fecha_devolucion',)
+    list_per_page = 25
+    list_editable = ('estado_devolucion',)
+    readonly_fields = ('numero_boleta_devolucion', 'created_at', 'updated_at')
+

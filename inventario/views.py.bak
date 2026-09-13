@@ -5,14 +5,14 @@ from django.contrib import messages
 from django.db import models
 from django.db.models import Q, Sum
 from django.urls import reverse_lazy
-from .models import Producto, Categoria, Movimiento, Bodega, Inventario , Cliente , Contrato , EquipoDevuelto 
+from .models import Producto, Categoria, Movimiento, Bodega, Inventario
 from .forms import ProductoForm, MovimientoForm, EntradaForm, SalidaForm, TrasladoForm, InventarioForm , TrasladoMasivoForm
 import json
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
-from .forms import EntradaMasivaForm, SalidaMasivaForm , DevolucionMasivaForm
+from .forms import EntradaMasivaForm, SalidaMasivaForm
 from .models import MovimientoMasivo , Unidad , EstadoUnidad , EquipoInstalado
-from .forms import UnidadForm, UnidadMasivaForm , ClienteForm , ContratoForm  # ← Agregar ContratoForm
+from .forms import UnidadForm, UnidadMasivaForm 
 import io
 from django.http import FileResponse
 from django.template.loader import render_to_string
@@ -493,20 +493,12 @@ def entrada_masiva(request):
     }
     return render(request, 'inventario/movimiento_masivo_form.html', context)
 
-
 @login_required
 def salida_masiva(request):
     """Vista para registrar salida masiva de productos (equipos definitivos)"""
     if request.method == 'POST':
         form = SalidaMasivaForm(request.POST)
         productos_json = request.POST.get('productos_json', '[]')
-
-        # DEBUG
-        print(f"=== POST SALIDA MASIVA ===")
-        print(f"Form válido: {form.is_valid()}")
-        print(f"Errores: {form.errors}")
-        print(f"Productos JSON: {productos_json}")
-        print(f"Contrato: {form.cleaned_data.get('contrato') if form.is_valid() else 'N/A'}")
         
         if form.is_valid():
             try:
@@ -523,11 +515,7 @@ def salida_masiva(request):
                     'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
                 })
             
-            
             bodega_origen = form.cleaned_data['bodega_origen']
-            contrato = form.cleaned_data['contrato']
-            cliente = contrato.cliente  # ← NUEVO
-            
             
             # ============================================================
             # VALIDAR PRODUCTOS
@@ -540,40 +528,62 @@ def salida_masiva(request):
                     producto = Producto.objects.get(pk=prod_data['producto_id'])
                     
                     if producto.maneja_serie:
+                        # ============================================================
+                        # PRODUCTOS CON SERIE: Cambiar estado a Instalado y mover
+                        # ============================================================
                         series = prod_data.get('series', [])
-                        if not series:
-                            errores.append(f"{producto.nombre}: no hay series seleccionadas")
-                            continue
                         
-                        series_validas = []
+                        # Obtener el estado "Instalado"
+                        estado_instalado = EstadoUnidad.objects.filter(nombre='Instalado').first()
+                        
                         for numero_serie in series:
                             try:
-                                Unidad.objects.get(
+                                unidad = Unidad.objects.get(
                                     producto=producto,
                                     numero_serie=numero_serie,
                                     bodega=bodega_origen
                                 )
-                                series_validas.append(numero_serie)
                             except Unidad.DoesNotExist:
-                                errores.append(f"{producto.nombre} - {numero_serie}: unidad no encontrada en origen")
-                        
-                        if series_validas:
-                            prod_data['series'] = series_validas
-                            productos_validos.append(prod_data)
-                    else:
-                        cantidad = int(prod_data.get('cantidad', 0))
-                        if cantidad <= 0:
-                            errores.append(f"{producto.nombre}: cantidad inválida")
-                            continue
-                        
-                        inventario = Inventario.objects.filter(
-                            producto=producto, bodega=bodega_origen
-                        ).first()
-                        
-                        if not inventario or inventario.cantidad < cantidad:
-                            disponible = inventario.cantidad if inventario else 0
-                            errores.append(f"{producto.nombre}: stock insuficiente (disponible: {disponible})")
-                            continue
+                                continue
+                            
+                            # 1. CAMBIAR EL ESTADO DE LA UNIDAD A "INSTALADO"
+                            if estado_instalado:
+                                unidad.estado = estado_instalado
+                                unidad.save()
+                            
+                            # 2. Crear registro en Movimiento (para historial)
+                            Movimiento.objects.create(
+                                tipo=Movimiento.TIPO_SALIDA,
+                                producto=producto,
+                                bodega_origen=bodega_origen,
+                                cantidad=1,
+                                descripcion=f"Salida masiva - Boleta: {movimiento_masivo.numero_boleta}",
+                                usuario=request.user,
+                                movimiento_masivo=movimiento_masivo,
+                                unidad=unidad
+                            )
+                            
+                            # 3. Crear registro en EquipoInstalado (con estado "Instalado")
+                            EquipoInstalado.objects.create(
+                                producto_codigo=producto.codigo,
+                                producto_nombre=producto.nombre,
+                                producto_categoria=producto.categoria.nombre if producto.categoria else '',
+                                numero_serie=unidad.numero_serie,
+                                estado_final='Instalado',  # ← Forzar el estado a "Instalado"
+                                notas=unidad.notas,
+                                numero_boleta=movimiento_masivo.numero_boleta,
+                                numero_adendum=movimiento_masivo.numero_adendum,
+                                descripcion_salida=movimiento_masivo.descripcion,
+                                bodega_origen_nombre=bodega_origen.nombre,
+                                bodega_origen_ubicacion=bodega_origen.ubicacion or '',
+                                fecha_salida=timezone.now(),
+                                usuario_salida=request.user.username,
+                                unidad_original_id=unidad.id,
+                                movimiento_masivo_id=movimiento_masivo.id
+                            )
+                            
+                            # 4. Rebajar del inventario de la bodega
+                            ...
                         
                         productos_validos.append(prod_data)
                 except (Producto.DoesNotExist, ValueError, KeyError) as e:
@@ -594,7 +604,7 @@ def salida_masiva(request):
                 })
             
             # ============================================================
-            # CREAR MOVIMIENTO MASIVO (ANTES de procesar)
+            # CREAR MOVIMIENTO MASIVO
             # ============================================================
             movimiento_masivo = MovimientoMasivo.objects.create(
                 tipo=MovimientoMasivo.TIPO_SALIDA,
@@ -609,19 +619,15 @@ def salida_masiva(request):
             # ============================================================
             equipos_movidos = 0
             
-            # Obtener el estado "Instalado" una sola vez
-            estado_instalado = EstadoUnidad.objects.filter(nombre='Instalado').first()
-            
             for prod_data in productos_validos:
                 try:
                     producto = Producto.objects.get(pk=prod_data['producto_id'])
                     
                     if producto.maneja_serie:
                         # ============================================================
-                        # PRODUCTOS CON SERIE: Cambiar estado a Instalado y mover
+                        # PRODUCTOS CON SERIE: Mover a EquipoInstalado
                         # ============================================================
                         series = prod_data.get('series', [])
-                        
                         for numero_serie in series:
                             try:
                                 unidad = Unidad.objects.get(
@@ -632,13 +638,7 @@ def salida_masiva(request):
                             except Unidad.DoesNotExist:
                                 continue
                             
-                            # 1. Cambiar el estado de la unidad a "Instalado"
-                            if estado_instalado:
-                                unidad.estado = estado_instalado
-                                unidad.bodega = None  # ← AGREGAR
-                                unidad.save()
-                            
-                            # 2. Crear movimiento (historial)
+                            # 1. Crear registro en Movimiento (para historial)
                             Movimiento.objects.create(
                                 tipo=Movimiento.TIPO_SALIDA,
                                 producto=producto,
@@ -650,15 +650,13 @@ def salida_masiva(request):
                                 unidad=unidad
                             )
                             
-                            # 3. Crear registro en EquipoInstalado
+                            # 2. Crear registro en EquipoInstalado (equipo que sale del inventario)
                             EquipoInstalado.objects.create(
-                                cliente=cliente,  # ← NUEVO
-                                contrato=contrato,  # ← NUEVO
                                 producto_codigo=producto.codigo,
                                 producto_nombre=producto.nombre,
                                 producto_categoria=producto.categoria.nombre if producto.categoria else '',
                                 numero_serie=unidad.numero_serie,
-                                estado_final='Instalado',
+                                estado_final=unidad.estado.nombre if unidad.estado else 'Sin estado',
                                 notas=unidad.notas,
                                 numero_boleta=movimiento_masivo.numero_boleta,
                                 numero_adendum=movimiento_masivo.numero_adendum,
@@ -671,7 +669,7 @@ def salida_masiva(request):
                                 movimiento_masivo_id=movimiento_masivo.id
                             )
                             
-                            # 4. Rebajar del inventario de la bodega
+                            # 3. Rebajar del inventario de la bodega
                             try:
                                 inv_origen = Inventario.objects.get(
                                     producto=producto, bodega=bodega_origen
@@ -683,8 +681,8 @@ def salida_masiva(request):
                             except Inventario.DoesNotExist:
                                 pass
                             
-                            # 5. Eliminar la unidad
-                            #unidad.delete()
+                            # 4. Eliminar la unidad de la tabla Unidad
+                            unidad.delete()
                             
                             equipos_movidos += 1
                     else:
@@ -1267,12 +1265,7 @@ def exportar_bodega_excel(request, bodega_id):
 def lista_unidades(request, producto_id):
     """Lista todas las unidades de un producto"""
     producto = get_object_or_404(Producto, pk=producto_id)
-    unidades = Unidad.objects.filter(
-    producto=producto
-    ).exclude(
-    estado__nombre='Instalado'
-    ).select_related('bodega', 'estado')
-
+    unidades = Unidad.objects.filter(producto=producto).select_related('bodega', 'estado')
     
     # Estadísticas
     total = unidades.count()
@@ -1351,7 +1344,6 @@ def crear_unidades_masivas(request, producto_id):
             numero_inicial = form.cleaned_data['numero_inicial']
             bodega = form.cleaned_data['bodega']
             estado = form.cleaned_data['estado']
-            condicion = form.cleaned_data.get('condicion', Unidad.CONDICION_NUEVO)
             
             creadas = 0
             errores = []
@@ -1370,8 +1362,7 @@ def crear_unidades_masivas(request, producto_id):
                         producto=producto,
                         numero_serie=numero_serie,
                         bodega=bodega,
-                        estado=estado,
-                        condicion=condicion  # ← NUEVO
+                        estado=estado
                     )
                     creadas += 1
                 except Exception as e:
@@ -1496,11 +1487,9 @@ def obtener_unidades_producto(request, producto_id):
     
     # Filtrar por estado Disponible (usando el nombre del FK)
     unidades = Unidad.objects.filter(
-    producto=producto,
-    estado__nombre='Disponible',
-    bodega__isnull=False
+        producto=producto,
+        estado__nombre='Disponible'
     )
-
     
     if bodega_id:
         unidades = unidades.filter(bodega_id=bodega_id)
@@ -1653,504 +1642,13 @@ def lista_equipos_instalados(request):
     }
     return render(request, 'inventario/equipos_instalados_list.html', context)
 
+
 @login_required
 def detalle_equipo_instalado(request, pk):
     """Detalle de un equipo instalado"""
-    equipo = get_object_or_404(
-        EquipoInstalado.objects.select_related('cliente', 'contrato'),
-        pk=pk
-    )
+    equipo = get_object_or_404(EquipoInstalado, pk=pk)
     
     context = {
         'equipo': equipo,
     }
     return render(request, 'inventario/equipo_instalado_detail.html', context)
-
-
-
-# ============================================================
-# GESTIÓN DE CLIENTES
-# ============================================================
-
-@login_required
-def lista_clientes(request):
-    """Lista todos los clientes"""
-    query = request.GET.get('q', '').strip()
-    clientes = Cliente.objects.all()
-    
-    if query:
-        clientes = clientes.filter(
-            Q(nombre__icontains=query) |
-            Q(cedula__icontains=query) |
-            Q(contacto__icontains=query) |
-            Q(telefono__icontains=query) |
-            Q(email__icontains=query)
-        )
-    
-    clientes = clientes.order_by('nombre')
-    
-    context = {
-        'clientes': clientes,
-        'query': query,
-        'total': clientes.count(),
-    }
-    return render(request, 'inventario/cliente_list.html', context)
-
-
-@login_required
-def crear_cliente(request):
-    """Crea un nuevo cliente"""
-    if request.method == 'POST':
-        form = ClienteForm(request.POST)
-        if form.is_valid():
-            cliente = form.save()
-            messages.success(request, f'Cliente "{cliente.nombre}" creado correctamente.')
-            return redirect('inventario:detalle_cliente', pk=cliente.pk)
-    else:
-        form = ClienteForm()
-    
-    context = {'form': form, 'titulo': 'Nuevo Cliente'}
-    return render(request, 'inventario/cliente_form.html', context)
-
-
-@login_required
-def editar_cliente(request, pk):
-    """Edita un cliente existente"""
-    cliente = get_object_or_404(Cliente, pk=pk)
-    
-    if request.method == 'POST':
-        form = ClienteForm(request.POST, instance=cliente)
-        if form.is_valid():
-            cliente = form.save()
-            messages.success(request, f'Cliente "{cliente.nombre}" actualizado.')
-            return redirect('inventario:detalle_cliente', pk=cliente.pk)
-    else:
-        form = ClienteForm(instance=cliente)
-    
-    context = {
-        'form': form,
-        'cliente': cliente,
-        'titulo': f'Editar Cliente - {cliente.nombre}',
-    }
-    return render(request, 'inventario/cliente_form.html', context)
-
-
-@login_required
-def detalle_cliente(request, pk):
-    """Detalle de un cliente con sus equipos instalados"""
-    cliente = get_object_or_404(Cliente, pk=pk)
-    equipos = cliente.equipos_instalados.all().order_by('-fecha_salida')
-    
-    context = {
-        'cliente': cliente,
-        'equipos': equipos,
-        'total_equipos': equipos.count(),
-    }
-    return render(request, 'inventario/cliente_detail.html', context)
-
-
-@login_required
-def eliminar_cliente(request, pk):
-    """Elimina un cliente"""
-    cliente = get_object_or_404(Cliente, pk=pk)
-    
-    if request.method == 'POST':
-        nombre = cliente.nombre
-        cliente.delete()
-        messages.success(request, f'Cliente "{nombre}" eliminado.')
-        return redirect('inventario:lista_clientes')
-    
-    context = {'cliente': cliente}
-    return render(request, 'inventario/cliente_confirm_delete.html', context)
-
-
-# ============================================================
-# REPORTE DE EQUIPOS POR CLIENTE
-# ============================================================
-
-@login_required
-def reporte_equipos_por_cliente(request):
-    """Reporte de equipos instalados por cliente"""
-    clientes = Cliente.objects.filter(activo=True).order_by('nombre')
-    
-    # Obtener cliente seleccionado (si hay)
-    cliente_id = request.GET.get('cliente_id')
-    cliente_seleccionado = None
-    equipos = []
-    
-    if cliente_id:
-        try:
-            cliente_seleccionado = Cliente.objects.get(pk=cliente_id)
-            equipos = cliente_seleccionado.equipos_instalados.all().order_by('-fecha_salida')
-        except Cliente.DoesNotExist:
-            pass
-    
-    # Estadísticas generales
-    total_clientes = clientes.count()
-    total_equipos = EquipoInstalado.objects.count()
-    
-    # Clientes con equipos
-    clientes_con_equipos = []
-    for c in clientes:
-        total = c.equipos_instalados.count()
-        if total > 0:
-            clientes_con_equipos.append({
-                'cliente': c,
-                'total': total,
-            })
-    
-    # Ordenar por total
-    clientes_con_equipos.sort(key=lambda x: x['total'], reverse=True)
-    
-    context = {
-        'clientes': clientes,
-        'cliente_seleccionado': cliente_seleccionado,
-        'equipos': equipos,
-        'total_clientes': total_clientes,
-        'total_equipos': total_equipos,
-        'clientes_con_equipos': clientes_con_equipos,
-    }
-    return render(request, 'inventario/reporte_equipos_por_cliente.html', context)
-
-
-@login_required
-def generar_pdf_reporte_cliente(request, cliente_id):
-    """Genera PDF del reporte de equipos de un cliente"""
-    cliente = get_object_or_404(Cliente, pk=cliente_id)
-    equipos = list(cliente.equipos_instalados.all().order_by('-fecha_salida'))
-    
-    # Dividir en bloques de 20 items
-    ITEMS_POR_PAGINA = 20
-    bloques = []
-    for i in range(0, len(equipos), ITEMS_POR_PAGINA):
-        bloques.append(equipos[i:i + ITEMS_POR_PAGINA])
-    if not bloques:
-        bloques = [[]]
-    
-    contador = 1
-    for bloque in bloques:
-        for eq in bloque:
-            eq.contador = contador
-            contador += 1
-    
-    context = {
-        'cliente': cliente,
-        'bloques': bloques,
-        'total_equipos': len(equipos),
-        'total_paginas': len(bloques),
-    }
-    
-    html_string = render_to_string('inventario/reporte_cliente_pdf.html', context)
-    buffer = io.BytesIO()
-    HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf(buffer)
-    buffer.seek(0)
-    
-    return FileResponse(
-        buffer,
-        as_attachment=True,
-        filename=f'reporte_{cliente.nombre.replace(" ", "_")}_{timezone.now().strftime("%Y%m%d")}.pdf'
-    )
-
-# ============================================================
-# GESTIÓN DE CONTRATOS
-# ============================================================
-
-@login_required
-def lista_contratos(request):
-    """Lista todos los contratos"""
-    query = request.GET.get('q', '').strip()
-    contratos = Contrato.objects.select_related('cliente').all()
-    
-    if query:
-        contratos = contratos.filter(
-            Q(numero_contrato__icontains=query) |
-            Q(cliente__nombre__icontains=query) |
-            Q(descripcion__icontains=query)
-        )
-    
-    contratos = contratos.order_by('-created_at')
-    
-    context = {
-        'contratos': contratos,
-        'query': query,
-        'total': contratos.count(),
-    }
-    return render(request, 'inventario/contrato_list.html', context)
-
-
-@login_required
-def crear_contrato(request):
-    """Crea un nuevo contrato"""
-    if request.method == 'POST':
-        form = ContratoForm(request.POST)
-        if form.is_valid():
-            contrato = form.save()
-            messages.success(request, f'Contrato "{contrato.numero_contrato}" creado correctamente.')
-            return redirect('inventario:detalle_contrato', pk=contrato.pk)
-    else:
-        form = ContratoForm()
-    
-    context = {'form': form, 'titulo': 'Nuevo Contrato'}
-    return render(request, 'inventario/contrato_form.html', context)
-
-
-@login_required
-def editar_contrato(request, pk):
-    """Edita un contrato existente"""
-    contrato = get_object_or_404(Contrato, pk=pk)
-    
-    if request.method == 'POST':
-        form = ContratoForm(request.POST, instance=contrato)
-        if form.is_valid():
-            contrato = form.save()
-            messages.success(request, f'Contrato "{contrato.numero_contrato}" actualizado.')
-            return redirect('inventario:detalle_contrato', pk=contrato.pk)
-    else:
-        form = ContratoForm(instance=contrato)
-    
-    context = {
-        'form': form,
-        'contrato': contrato,
-        'titulo': f'Editar Contrato - {contrato.numero_contrato}',
-    }
-    return render(request, 'inventario/contrato_form.html', context)
-
-
-@login_required
-def detalle_contrato(request, pk):
-    """Detalle de un contrato con sus equipos"""
-    contrato = get_object_or_404(Contrato, pk=pk)
-    equipos = contrato.equipos_instalados.all().order_by('-fecha_salida')
-    
-    context = {
-        'contrato': contrato,
-        'equipos': equipos,
-        'total_equipos': equipos.count(),
-    }
-    return render(request, 'inventario/contrato_detail.html', context)
-
-
-@login_required
-def eliminar_contrato(request, pk):
-    """Elimina un contrato"""
-    contrato = get_object_or_404(Contrato, pk=pk)
-    
-    if request.method == 'POST':
-        numero = contrato.numero_contrato
-        contrato.delete()
-        messages.success(request, f'Contrato "{numero}" eliminado.')
-        return redirect('inventario:lista_contratos')
-    
-    context = {'contrato': contrato}
-    return render(request, 'inventario/contrato_confirm_delete.html', context)
-
-
-@login_required
-def cambiar_estado_contrato(request, pk):
-    """Cambia el estado de un contrato (activo/suspendido)"""
-    contrato = get_object_or_404(Contrato, pk=pk)
-    
-    if request.method == 'POST':
-        nuevo_estado = request.POST.get('estado')
-        if nuevo_estado in [Contrato.ESTADO_ACTIVO, Contrato.ESTADO_SUSPENDIDO, Contrato.ESTADO_FINALIZADO]:
-            contrato.estado = nuevo_estado
-            contrato.save()
-            messages.success(request, f'Contrato "{contrato.numero_contrato}" cambiado a {contrato.get_estado_display()}.')
-    
-    return redirect('inventario:detalle_contrato', pk=contrato.pk)
-
-# ============================================================
-# EQUIPOS DEVUELTOS
-# ============================================================
-
-@login_required
-def seleccionar_contrato_devolucion(request):
-    """Paso 1: Seleccionar el contrato para devolver equipos"""
-    contratos = Contrato.objects.filter(
-        estado__in=['activo', 'suspendido']
-    ).select_related('cliente').order_by('-created_at')
-    
-    # Contar equipos por contrato
-    contratos_con_equipos = []
-    for c in contratos:
-        total = c.equipos_instalados.count()
-        if total > 0:
-            contratos_con_equipos.append({
-                'contrato': c,
-                'total': total,
-            })
-    
-    context = {
-        'contratos': contratos_con_equipos,
-        'total': len(contratos_con_equipos),
-    }
-    return render(request, 'inventario/devolucion_seleccionar_contrato.html', context)
-
-
-@login_required
-def registrar_devolucion(request, contrato_id):
-    """Paso 2: Registrar la devolución de equipos del contrato"""
-    contrato = get_object_or_404(Contrato, pk=contrato_id)
-    equipos = contrato.equipos_instalados.all().order_by('producto_nombre', 'numero_serie')
-    
-    if request.method == 'POST':
-        form = DevolucionMasivaForm(request.POST)
-        equipos_json = request.POST.get('equipos_json', '[]')
-        
-        if form.is_valid():
-            try:
-                equipos_seleccionados = json.loads(equipos_json)
-            except json.JSONDecodeError:
-                messages.error(request, 'Error al procesar los equipos.')
-                return render(request, 'inventario/devolucion_registrar.html', {
-                    'form': form, 'contrato': contrato, 'equipos': equipos
-                })
-            
-            if not equipos_seleccionados:
-                messages.error(request, 'Debes seleccionar al menos un equipo.')
-                return render(request, 'inventario/devolucion_registrar.html', {
-                    'form': form, 'contrato': contrato, 'equipos': equipos
-                })
-            
-            bodega_recepcion = form.cleaned_data['bodega_recepcion']
-            equipos_devueltos = 0
-            errores = []
-            
-            # Obtener estado "Disponible" para las unidades devueltas
-            estado_disponible = EstadoUnidad.objects.filter(nombre='Disponible').first()
-            
-            for equipo_data in equipos_seleccionados:
-                try:
-                    equipo_instalado = EquipoInstalado.objects.get(pk=equipo_data['equipo_id'])
-                    
-                    # 1. Crear registro en EquipoDevuelto
-                    equipo_devuelto = EquipoDevuelto.objects.create(
-                        producto_codigo=equipo_instalado.producto_codigo,
-                        producto_nombre=equipo_instalado.producto_nombre,
-                        producto_categoria=equipo_instalado.producto_categoria,
-                        numero_serie=equipo_instalado.numero_serie,
-                        estado_final=equipo_instalado.estado_final,
-                        notas=equipo_instalado.notas,
-                        numero_contrato=contrato.numero_contrato,
-                        cliente_nombre=contrato.cliente.nombre,
-                        numero_adendum=form.cleaned_data.get('numero_adendum', ''),
-                        motivo_devolucion=form.cleaned_data.get('motivo_devolucion', ''),
-                        estado_devolucion=EquipoDevuelto.ESTADO_RECIBIDO,
-                        bodega_recepcion_nombre=bodega_recepcion.nombre,
-                        bodega_recepcion_ubicacion=bodega_recepcion.ubicacion or '',
-                        fecha_devolucion=timezone.now(),
-                        usuario_recepcion=request.user.username,
-                        equipo_instalado_id=equipo_instalado.id,
-                        contrato_id=contrato.id,
-                        unidad_original_id=equipo_instalado.unidad_original_id
-                    )
-                    
-                    # 2. Restaurar la unidad (si existe en la tabla Unidad)
-                    try:
-                        unidad = Unidad.objects.get(pk=equipo_instalado.unidad_original_id)
-                        unidad.estado = estado_disponible
-                        unidad.bodega = bodega_recepcion
-                        unidad.condicion = Unidad.CONDICION_USADO  # ← Marcar como usado
-                        unidad.save()
-                    except Unidad.DoesNotExist:
-                        pass
-                    
-                    # 3. Restaurar el inventario de la bodega de recepción
-                    try:
-                        producto = Producto.objects.get(codigo=equipo_instalado.producto_codigo)
-                        inventario, created = Inventario.objects.get_or_create(
-                            producto=producto,
-                            bodega=bodega_recepcion,
-                            defaults={'cantidad': 0, 'stock_minimo': producto.stock_minimo}
-                        )
-                        inventario.cantidad += 1
-                        inventario.save()
-                    except Producto.DoesNotExist:
-                        pass
-                    
-                    # 4. Crear movimiento de entrada (historial)
-                    try:
-                        producto = Producto.objects.get(codigo=equipo_instalado.producto_codigo)
-                        Movimiento.objects.create(
-                            tipo=Movimiento.TIPO_ENTRADA,
-                            producto=producto,
-                            bodega_destino=bodega_recepcion,
-                            cantidad=1,
-                            descripcion=f"Devolución - Boleta: {equipo_devuelto.numero_boleta_devolucion}",
-                            usuario=request.user
-                        )
-                    except Producto.DoesNotExist:
-                        pass
-                    
-                    # 5. Eliminar el EquipoInstalado (ya no está instalado)
-                    equipo_instalado.delete()
-                    
-                    equipos_devueltos += 1
-                    
-                except EquipoInstalado.DoesNotExist:
-                    errores.append(f"Equipo con ID {equipo_data.get('equipo_id')} no encontrado")
-                    continue
-                except Exception as e:
-                    errores.append(f"Error con {equipo_data.get('numero_serie', 'N/A')}: {str(e)}")
-                    continue
-            
-            if errores:
-                for error in errores:
-                    messages.warning(request, error)
-            
-            if equipos_devueltos > 0:
-                messages.success(
-                    request,
-                    f'✅ {equipos_devueltos} equipo(s) devuelto(s) correctamente.'
-                )
-                return redirect('inventario:lista_equipos_devueltos')
-            else:
-                messages.error(request, 'No se pudo procesar ninguna devolución.')
-    
-    else:
-        form = DevolucionMasivaForm()
-    
-    context = {
-        'form': form,
-        'contrato': contrato,
-        'equipos': equipos,
-        'total_equipos': equipos.count(),
-    }
-    return render(request, 'inventario/devolucion_registrar.html', context)
-
-
-@login_required
-def lista_equipos_devueltos(request):
-    """Lista todos los equipos devueltos"""
-    query = request.GET.get('q', '').strip()
-    equipos = EquipoDevuelto.objects.all()
-    
-    if query:
-        equipos = equipos.filter(
-            Q(numero_serie__icontains=query) |
-            Q(producto_nombre__icontains=query) |
-            Q(producto_codigo__icontains=query) |
-            Q(numero_contrato__icontains=query) |
-            Q(cliente_nombre__icontains=query) |
-            Q(numero_boleta_devolucion__icontains=query)
-        )
-    
-    equipos = equipos.order_by('-fecha_devolucion')
-    
-    context = {
-        'equipos': equipos,
-        'query': query,
-        'total': equipos.count(),
-    }
-    return render(request, 'inventario/equipos_devueltos_list.html', context)
-
-
-@login_required
-def detalle_equipo_devuelto(request, pk):
-    """Detalle de un equipo devuelto"""
-    equipo = get_object_or_404(EquipoDevuelto, pk=pk)
-    
-    context = {
-        'equipo': equipo,
-    }
-    return render(request, 'inventario/equipo_devuelto_detail.html', context)

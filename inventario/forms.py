@@ -1,7 +1,7 @@
 from django import forms
 from .models import (
     Producto, Movimiento, Bodega, Inventario, Categoria,
-    MovimientoMasivo, Unidad, EstadoUnidad , Cliente
+    MovimientoMasivo, Unidad, EstadoUnidad , Cliente , Contrato , EquipoDevuelto
 )
 
 class ProductoForm(forms.ModelForm):
@@ -148,12 +148,13 @@ class SalidaMasivaForm(forms.Form):
         label='Bodega de origen',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    cliente = forms.ModelChoiceField(  # ← NUEVO
-        queryset=Cliente.objects.filter(activo=True),
-        label='Cliente',
+    
+    contrato = forms.ModelChoiceField(  # ← NUEVO
+        queryset=Contrato.objects.filter(estado='activo'),
+        label='Contrato',
         required=True,
         widget=forms.Select(attrs={'class': 'form-control'}),
-        empty_label='--- Seleccione un cliente ---'
+        empty_label='--- Seleccione un contrato ---'
     )
     numero_adendum = forms.CharField(
         max_length=50,
@@ -210,7 +211,7 @@ class TrasladoMasivoForm(forms.Form):
 class UnidadForm(forms.ModelForm):
     class Meta:
         model = Unidad
-        fields = ['numero_serie', 'bodega', 'estado', 'notas']
+        fields = ['numero_serie', 'bodega', 'estado', 'notas' , 'condicion']
         widgets = {
             'numero_serie': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -219,6 +220,7 @@ class UnidadForm(forms.ModelForm):
             'notas': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'bodega': forms.Select(attrs={'class': 'form-control'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
+            'condicion': forms.Select(attrs={'class': 'form-control'}),  # ← Agregar
         }
     
     def __init__(self, *args, **kwargs):
@@ -259,6 +261,12 @@ class UnidadMasivaForm(forms.Form):
         label='Estado',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
+    condicion = forms.ChoiceField(  # ← NUEVO
+        choices=Unidad.CONDICION_CHOICES,
+        initial=Unidad.CONDICION_NUEVO,
+        label='Condición',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
 
 class ClienteForm(forms.ModelForm):  # ← NUEVO
     class Meta:
@@ -274,3 +282,40 @@ class ClienteForm(forms.ModelForm):  # ← NUEVO
             'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
+class ContratoForm(forms.ModelForm):
+    class Meta:
+        model = Contrato
+        fields = [
+            'numero_contrato', 'cliente', 'estado',
+            'fecha_inicio', 'fecha_fin', 'descripcion',
+            'monto_mensual', 'notas'
+        ]
+        widgets = {
+            'numero_contrato': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: CONT-2026-001'}),
+            'cliente': forms.Select(attrs={'class': 'form-control'}),
+            'estado': forms.Select(attrs={'class': 'form-control'}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_fin': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'monto_mensual': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+class DevolucionMasivaForm(forms.Form):
+    """Formulario para registrar devolución masiva de equipos"""
+    bodega_recepcion = forms.ModelChoiceField(
+        queryset=Bodega.objects.filter(activa=True),
+        label='Bodega de Recepción',
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    numero_adendum = forms.CharField(
+        max_length=50,
+        required=False,
+        label='N° Adendum (Opcional)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Opcional'})
+    )
+    motivo_devolucion = forms.CharField(
+        required=False,
+        label='Motivo de Devolución',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
+    )
