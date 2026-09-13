@@ -1,0 +1,176 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Registrar Devolución{% endblock %}
+
+{% block content %}
+<div class="form-container" style="max-width: 1100px;">
+    <div class="header-actions">
+        <h1>🔄 Registrar Devolución</h1>
+        <a href="{% url 'inventario:seleccionar_contrato_devolucion' %}" class="btn btn-secondary">
+            ← Volver
+        </a>
+    </div>
+
+    <!-- Información del Contrato -->
+    <div class="detail-card" style="margin-bottom: 20px; border-left: 4px solid #3498db;">
+        <h3>📄 Información del Contrato</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>N° Contrato:</strong> 
+                    <a href="{% url 'inventario:detalle_contrato' contrato.pk %}">
+                        {{ contrato.numero_contrato }}
+                    </a>
+                </p>
+                <p><strong>Cliente:</strong> {{ contrato.cliente.nombre }}</p>
+                <p><strong>Cédula:</strong> {{ contrato.cliente.cedula|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>Estado:</strong> 
+                    <span class="badge 
+                        {% if contrato.estado == 'activo' %}badge-success
+                        {% elif contrato.estado == 'suspendido' %}badge-warning
+                        {% else %}badge-secondary{% endif %}">
+                        {{ contrato.get_estado_display }}
+                    </span>
+                </p>
+                <p><strong>Equipos Instalados:</strong> {{ total_equipos }}</p>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="form-devolucion">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <!-- Datos de la devolución -->
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.bodega_recepcion.id_for_label }}">
+                    {{ form.bodega_recepcion.label }} <span style="color: #e74c3c;">*</span>
+                </label>
+                {{ form.bodega_recepcion }}
+                {{ form.bodega_recepcion.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.numero_adendum.id_for_label }}">{{ form.numero_adendum.label }}:</label>
+                {{ form.numero_adendum }}
+                {{ form.numero_adendum.errors }}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.motivo_devolucion.id_for_label }}">{{ form.motivo_devolucion.label }}:</label>
+            {{ form.motivo_devolucion }}
+            {{ form.motivo_devolucion.errors }}
+        </div>
+
+        <!-- Selección de equipos -->
+        <fieldset style="border: 2px solid #3498db; border-radius: 8px; padding: 15px; margin-top: 20px;">
+            <legend style="color: #3498db; font-weight: bold; padding: 0 10px;">
+                📦 Equipos a Devolver
+            </legend>
+            
+            <p style="color: #7f8c8d; font-size: 0.9rem;">
+                Selecciona los equipos que el cliente está devolviendo:
+            </p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">
+                            <input type="checkbox" id="select-all" onchange="toggleAll(this)">
+                        </th>
+                        <th>N° Serie</th>
+                        <th>Producto</th>
+                        <th>Código</th>
+                        <th>Estado</th>
+                        <th>Boleta Original</th>
+                        <th>Fecha Salida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipo in equipos %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="equipo-checkbox" 
+                                   value="{{ equipo.pk }}"
+                                   data-serie="{{ equipo.numero_serie }}"
+                                   onchange="actualizarSeleccion()">
+                        </td>
+                        <td><strong>{{ equipo.numero_serie }}</strong></td>
+                        <td>{{ equipo.producto_nombre }}</td>
+                        <td>{{ equipo.producto_codigo }}</td>
+                        <td>
+                            <span class="badge badge-info">{{ equipo.estado_final }}</span>
+                        </td>
+                        <td>{{ equipo.numero_boleta }}</td>
+                        <td>{{ equipo.fecha_salida|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">Este contrato no tiene equipos instalados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div id="resumen-seleccion" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; display: none;">
+                <strong>✅ Equipos seleccionados: <span id="contador-seleccionados">0</span></strong>
+            </div>
+            
+            <input type="hidden" name="equipos_json" id="equipos_json" value="[]">
+        </fieldset>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Registrar Devolución</button>
+            <a href="{% url 'inventario:seleccionar_contrato_devolucion' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+let equiposSeleccionados = [];
+
+function toggleAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.equipo-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    actualizarSeleccion();
+}
+
+function actualizarSeleccion() {
+    const checkboxes = document.querySelectorAll('.equipo-checkbox:checked');
+    equiposSeleccionados = Array.from(checkboxes).map(cb => ({
+        equipo_id: parseInt(cb.value),
+        numero_serie: cb.dataset.serie
+    }));
+    
+    document.getElementById('contador-seleccionados').textContent = equiposSeleccionados.length;
+    document.getElementById('resumen-seleccion').style.display = 
+        equiposSeleccionados.length > 0 ? 'block' : 'none';
+    
+    document.getElementById('equipos_json').value = JSON.stringify(equiposSeleccionados);
+}
+
+document.getElementById('form-devolucion').addEventListener('submit', function(e) {
+    if (equiposSeleccionados.length === 0) {
+        e.preventDefault();
+        alert('⚠️ Debes seleccionar al menos un equipo para devolver');
+        return false;
+    }
+    
+    if (!confirm(`¿Confirmar la devolución de ${equiposSeleccionados.length} equipo(s)?`)) {
+        e.preventDefault();
+        return false;
+    }
+    
+    document.getElementById('equipos_json').value = JSON.stringify(equiposSeleccionados);
+});
+
+actualizarSeleccion();
+</script>
+{% endblock %}

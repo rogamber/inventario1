@@ -1,0 +1,73 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ titulo }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.numero_contrato.id_for_label }}">N° Contrato:</label>
+                {{ form.numero_contrato }}
+                {{ form.numero_contrato.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.cliente.id_for_label }}">Cliente:</label>
+                {{ form.cliente }}
+                {{ form.cliente.errors }}
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.estado.id_for_label }}">Estado:</label>
+                {{ form.estado }}
+                {{ form.estado.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.monto_mensual.id_for_label }}">Monto Mensual:</label>
+                {{ form.monto_mensual }}
+                {{ form.monto_mensual.errors }}
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.fecha_inicio.id_for_label }}">Fecha de Inicio:</label>
+                {{ form.fecha_inicio }}
+                {{ form.fecha_inicio.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.fecha_fin.id_for_label }}">Fecha de Fin:</label>
+                {{ form.fecha_fin }}
+                {{ form.fecha_fin.errors }}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.descripcion.id_for_label }}">Descripción:</label>
+            {{ form.descripcion }}
+            {{ form.descripcion.errors }}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.notas.id_for_label }}">Notas:</label>
+            {{ form.notas }}
+            {{ form.notas.errors }}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+            <a href="{% url 'inventario:lista_contratos' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

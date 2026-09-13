@@ -1,0 +1,93 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ contrato.numero_contrato }}{% endblock %}
+
+{% block content %}
+<div class="contrato-detail">
+    <div class="header-actions">
+        <h1>📄 {{ contrato.numero_contrato }}</h1>
+        <div>
+            <a href="{% url 'inventario:editar_contrato' contrato.pk %}" class="btn btn-secondary">✏️ Editar</a>
+            <a href="{% url 'inventario:eliminar_contrato' contrato.pk %}" class="btn btn-danger">🗑️ Eliminar</a>
+            <a href="{% url 'inventario:lista_contratos' %}" class="btn btn-info">← Volver</a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>📋 Información del Contrato</h3>
+            <p><strong>Cliente:</strong> 
+                <a href="{% url 'inventario:detalle_cliente' contrato.cliente.pk %}">
+                    {{ contrato.cliente.nombre }}
+                </a>
+            </p>
+            <p><strong>Estado:</strong> 
+                <span class="badge 
+                    {% if contrato.estado == 'activo' %}badge-success
+                    {% elif contrato.estado == 'suspendido' %}badge-warning
+                    {% else %}badge-secondary{% endif %}">
+                    {{ contrato.get_estado_display }}
+                </span>
+            </p>
+            <p><strong>Fecha de Inicio:</strong> {{ contrato.fecha_inicio|date:"d/m/Y" }}</p>
+            <p><strong>Fecha de Fin:</strong> {{ contrato.fecha_fin|date:"d/m/Y"|default:"Indefinido" }}</p>
+            <p><strong>Monto Mensual:</strong> ${{ contrato.monto_mensual|default:"No definido" }}</p>
+            <p><strong>Descripción:</strong> {{ contrato.descripcion|default:"Sin descripción" }}</p>
+            <p><strong>Notas:</strong> {{ contrato.notas|default:"Sin notas" }}</p>
+        </div>
+
+        <div class="detail-card">
+            <h3>⚙️ Acciones</h3>
+            <p><strong>Total de equipos:</strong> {{ total_equipos }}</p>
+            
+            <form method="post" action="{% url 'inventario:cambiar_estado_contrato' contrato.pk %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Cambiar Estado:</label>
+                    <select name="estado" class="form-control">
+                        <option value="activo" {% if contrato.estado == 'activo' %}selected{% endif %}>Activo</option>
+                        <option value="suspendido" {% if contrato.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
+                        <option value="finalizado" {% if contrato.estado == 'finalizado' %}selected{% endif %}>Finalizado</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">💾 Cambiar Estado</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="movements">
+        <h2>📦 Equipos del Contrato</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° Serie</th>
+                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Boleta</th>
+                    <th>Fecha Salida</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td><strong>{{ equipo.numero_serie }}</strong></td>
+                    <td>{{ equipo.producto_nombre }}</td>
+                    <td>{{ equipo.producto_codigo }}</td>
+                    <td>{{ equipo.numero_boleta }}</td>
+                    <td>{{ equipo.fecha_salida|date:"d/m/Y" }}</td>
+                    <td>
+                        <a href="{% url 'inventario:detalle_equipo_instalado' equipo.pk %}" 
+                           class="btn btn-sm btn-info">Ver</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">Este contrato no tiene equipos instalados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -30,7 +30,16 @@
                 {{ form.estado }}
                 {{ form.estado.errors }}
             </div>
+
+             <!-- NUEVO: Campo Condición -->
+            <div class="form-group">
+            <label for="{{ form.condicion.id_for_label }}">Condición:</label>
+              {{ form.condicion }}
+              {{ form.condicion.errors }}
+            </div>
         </div>
+
+       
 
         <div class="form-group">
             <label for="{{ form.notas.id_for_label }}">Notas:</label>

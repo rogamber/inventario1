@@ -48,25 +48,44 @@
                               </ul>
                         </li>
 
-                             <!-- Clientes -->
-                        <li class="dropdown">
-                           <a href="#">👥 Clientes</a>
-                          <ul class="dropdown-menu">
-                           <li><a href="{% url 'inventario:lista_clientes' %}">Lista de clientes</a></li>
-                           <li><a href="{% url 'inventario:crear_cliente' %}">Nuevo cliente</a></li>
-                           <li><a href="{% url 'inventario:reporte_equipos_por_cliente' %}">📊 Reporte por cliente</a></li>
-                          </ul>
-                        </li>
-                        
-                        
                          <li class="dropdown">
-                         <a href="#">📤 Vistas</a>
-                         <ul class="dropdown-menu">
-                          <li><a href="{% url 'inventario:resumen_inventario' %}">📈 Resumen</a></li>
-                          <li><a href="{% url 'inventario:lista_equipos_instalados' %}">✅ Equipos Instalados</a></li>
-                          <li><a href="{% url 'inventario:lista_movimientos_masivos' %}">📋 Historial Movimientos</a></li>
-                         </ul>
-                          </li>
+                        <a href="#">🔄 Contratos</a>
+                            <ul class="dropdown-menu">
+                                <li style="border-top: 1px solid #eee; margin: 5px 0;"></li>
+                                <li><a href="{% url 'inventario:lista_contratos' %}">📄 Contratos</a></li>
+                                <li><a href="{% url 'inventario:crear_contrato' %}">➕ Nuevo contrato</a></li>
+                                
+                            </ul>
+                        </li>
+
+                        <li class="dropdown">
+                        <a href="#">👥 Clientes</a>
+                          <ul class="dropdown-menu">
+                              <li><a href="{% url 'inventario:lista_clientes' %}">Lista de clientes</a></li>
+                              <li><a href="{% url 'inventario:crear_cliente' %}">Nuevo cliente</a></li>
+                             
+                              <li style="border-top: 1px solid #eee; margin: 5px 0;"></li>
+                              <li><a href="{% url 'inventario:reporte_equipos_por_cliente' %}">📊 Reporte por cliente</a></li>
+                          </ul>
+                        </li> 
+                        
+                        <li class="dropdown">
+                        <a href="#">🔄 Devoluciones</a>
+                            <ul class="dropdown-menu">
+                                <li><a href="{% url 'inventario:seleccionar_contrato_devolucion' %}">🔄 Nueva Devolución</a></li>
+                                <li><a href="{% url 'inventario:lista_equipos_devueltos' %}">📋 Equipos Devueltos</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="dropdown">
+                        <a href="#">📤 Consultas</a>
+                            <ul class="dropdown-menu">
+                             <li><a href="{% url 'inventario:resumen_inventario' %}">📈 Resumen</a></li>
+                             <li><a href="{% url 'inventario:lista_equipos_instalados' %}">✅ Equipos Instalados</a></li>
+                             <li><a href="{% url 'inventario:lista_equipos_devueltos' %}">📋 Equipos Devueltos</a></li>
+                             <li><a href="{% url 'inventario:lista_movimientos_masivos' %}">📋 Historial Movimientos</a></li>
+                            </ul>
+                        </li>
 
                         <li>
                             <!--<span class="user-info">{{ user.username }}</span>-->

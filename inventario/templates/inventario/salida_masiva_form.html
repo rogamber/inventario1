@@ -23,13 +23,22 @@
             </div>
             {% endif %}
 
-            <!-- ✅ NUEVO CAMPO CLIENTE -->
+            <!-- ✅ NUEVO CAMPO CLIENTE
             <div class="form-group">
             <label for="{{ form.cliente.id_for_label }}">
             {{ form.cliente.label }} <span style="color: #e74c3c;">*</span>
             </label>
              {{ form.cliente }}
              {{ form.cliente.errors }}
+            </div>-->
+
+            <!-- ✅ NUEVO CAMPO CONTRATO -->
+            <div class="form-group">
+            <label for="{{ form.contrato.id_for_label }}">
+               {{ form.contrato.label }} <span style="color: #e74c3c;">*</span>
+            </label>
+               {{ form.contrato }}
+               {{ form.contrato.errors }}
             </div>
 
             {% if form.bodega_destino %}

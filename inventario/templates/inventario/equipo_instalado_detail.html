@@ -9,29 +9,135 @@
         <a href="{% url 'inventario:lista_equipos_instalados' %}" class="btn btn-secondary">← Volver</a>
     </div>
 
+    <!-- Información del Producto -->
     <div class="detail-card">
-        <h3>Información del Producto</h3>
-        <p><strong>Código:</strong> {{ equipo.producto_codigo }}</p>
-        <p><strong>Producto:</strong> {{ equipo.producto_nombre }}</p>
-        <p><strong>Categoría:</strong> {{ equipo.producto_categoria|default:"-" }}</p>
+        <h3>📦 Información del Producto</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>Código:</strong> {{ equipo.producto_codigo }}</p>
+                <p><strong>Producto:</strong> {{ equipo.producto_nombre }}</p>
+                <p><strong>Categoría:</strong> {{ equipo.producto_categoria|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>N° Serie:</strong> 
+                    <span class="badge badge-warning">{{ equipo.numero_serie }}</span>
+                </p>
+                <p><strong>Estado Final:</strong> 
+                    <span class="badge badge-info">{{ equipo.estado_final }}</span>
+                </p>
+            </div>
+        </div>
     </div>
 
+    <!-- Información del Cliente -->
+    {% if equipo.cliente %}
+    <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #3498db;">
+        <h3>👤 Cliente</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>Nombre:</strong> 
+                    <a href="{% url 'inventario:detalle_cliente' equipo.cliente.pk %}">
+                        {{ equipo.cliente.nombre }}
+                    </a>
+                </p>
+                <p><strong>Cédula/RUC:</strong> {{ equipo.cliente.cedula|default:"-" }}</p>
+                <p><strong>Contacto:</strong> {{ equipo.cliente.contacto|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>Teléfono:</strong> {{ equipo.cliente.telefono|default:"-" }}</p>
+                <p><strong>Email:</strong> {{ equipo.cliente.email|default:"-" }}</p>
+                <p><strong>Dirección:</strong> {{ equipo.cliente.direccion|default:"-"|truncatechars:50 }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Información del Contrato -->
+    {% if equipo.contrato %}
+    <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #27ae60;">
+        <h3>📄 Contrato</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>N° Contrato:</strong> 
+                    <a href="{% url 'inventario:detalle_contrato' equipo.contrato.pk %}">
+                        <strong>{{ equipo.contrato.numero_contrato }}</strong>
+                    </a>
+                </p>
+                <p><strong>Estado:</strong> 
+                    <span class="badge 
+                        {% if equipo.contrato.estado == 'activo' %}badge-success
+                        {% elif equipo.contrato.estado == 'suspendido' %}badge-warning
+                        {% else %}badge-secondary{% endif %}">
+                        {{ equipo.contrato.get_estado_display }}
+                    </span>
+                </p>
+                <p><strong>Fecha de Inicio:</strong> {{ equipo.contrato.fecha_inicio|date:"d/m/Y" }}</p>
+                <p><strong>Fecha de Fin:</strong> {{ equipo.contrato.fecha_fin|date:"d/m/Y"|default:"Indefinido" }}</p>
+            </div>
+            <div>
+                <p><strong>Monto Mensual:</strong> 
+                    {% if equipo.contrato.monto_mensual %}
+                        ${{ equipo.contrato.monto_mensual }}
+                    {% else %}
+                        No definido
+                    {% endif %}
+                </p>
+                <p><strong>Total Equipos en Contrato:</strong> 
+                    <span class="badge badge-info">{{ equipo.contrato.total_equipos }}</span>
+                </p>
+                <p><strong>Descripción:</strong> {{ equipo.contrato.descripcion|default:"Sin descripción"|truncatechars:100 }}</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #e74c3c;">
+        <h3>📄 Contrato</h3>
+        <p style="color: #e74c3c; text-align: center; padding: 15px;">
+            <strong>⚠️ Este equipo no está asociado a ningún contrato</strong>
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Información de la Salida -->
     <div class="detail-card" style="margin-top: 20px;">
-        <h3>Información de la Unidad</h3>
-        <p><strong>N° Serie:</strong> <span class="badge badge-warning">{{ equipo.numero_serie }}</span></p>
-        <p><strong>Estado Final:</strong> <span class="badge badge-info">{{ equipo.estado_final }}</span></p>
-        <p><strong>Notas:</strong> {{ equipo.notas|default:"Sin notas" }}</p>
+        <h3>📤 Información de la Salida</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>Boleta:</strong> {{ equipo.numero_boleta }}</p>
+                <p><strong>Adendum:</strong> 
+                    {% if equipo.numero_adendum %}
+                        <span class="badge badge-info">{{ equipo.numero_adendum }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </p>
+                <p><strong>Bodega Origen:</strong> {{ equipo.bodega_origen_nombre }}</p>
+                <p><strong>Ubicación:</strong> {{ equipo.bodega_origen_ubicacion|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>Fecha de Salida:</strong> {{ equipo.fecha_salida|date:"d/m/Y H:i" }}</p>
+                <p><strong>Usuario:</strong> {{ equipo.usuario_salida }}</p>
+                <p><strong>Descripción:</strong> {{ equipo.descripcion_salida|default:"-" }}</p>
+                <p><strong>Notas:</strong> {{ equipo.notas|default:"Sin notas" }}</p>
+            </div>
+        </div>
     </div>
 
-    <div class="detail-card" style="margin-top: 20px;">
-        <h3>Información de la Salida</h3>
-        <p><strong>Boleta:</strong> {{ equipo.numero_boleta }}</p>
-        <p><strong>Adendum:</strong> {{ equipo.numero_adendum|default:"-" }}</p>
-        <p><strong>Descripción:</strong> {{ equipo.descripcion_salida|default:"-" }}</p>
-        <p><strong>Bodega Origen:</strong> {{ equipo.bodega_origen_nombre }}</p>
-        <p><strong>Ubicación:</strong> {{ equipo.bodega_origen_ubicacion|default:"-" }}</p>
-        <p><strong>Fecha de Salida:</strong> {{ equipo.fecha_salida|date:"d/m/Y H:i" }}</p>
-        <p><strong>Usuario:</strong> {{ equipo.usuario_salida }}</p>
+    <!-- Acciones -->
+    <div class="form-actions" style="justify-content: center; margin-top: 30px;">
+        {% if equipo.cliente %}
+        <a href="{% url 'inventario:detalle_cliente' equipo.cliente.pk %}" class="btn btn-primary">
+            👤 Ver Cliente
+        </a>
+        {% endif %}
+        {% if equipo.contrato %}
+        <a href="{% url 'inventario:detalle_contrato' equipo.contrato.pk %}" class="btn btn-success">
+            📄 Ver Contrato
+        </a>
+        {% endif %}
+        <a href="{% url 'inventario:lista_equipos_instalados' %}" class="btn btn-secondary">
+            ← Volver a la Lista
+        </a>
     </div>
 </div>
 {% endblock %}

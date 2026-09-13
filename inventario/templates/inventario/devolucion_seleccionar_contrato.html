@@ -1,0 +1,64 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Seleccionar Contrato para Devolución{% endblock %}
+
+{% block content %}
+<div class="devolucion-seleccionar">
+    <div class="header-actions">
+        <h1>🔄 Devolución de Equipos</h1>
+        <a href="{% url 'inventario:lista_equipos_devueltos' %}" class="btn btn-info">
+            📋 Ver Equipos Devueltos
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <strong>ℹ️ Paso 1:</strong> Selecciona el contrato del cual se devolverán los equipos.
+    </div>
+
+    {% if contratos %}
+    <table>
+        <thead>
+            <tr>
+                <th>N° Contrato</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th>Equipos Instalados</th>
+                <th>Fecha Inicio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in contratos %}
+            <tr>
+                <td><strong>{{ item.contrato.numero_contrato }}</strong></td>
+                <td>{{ item.contrato.cliente.nombre }}</td>
+                <td>
+                    <span class="badge 
+                        {% if item.contrato.estado == 'activo' %}badge-success
+                        {% elif item.contrato.estado == 'suspendido' %}badge-warning
+                        {% else %}badge-secondary{% endif %}">
+                        {{ item.contrato.get_estado_display }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge badge-info">{{ item.total }}</span>
+                </td>
+                <td>{{ item.contrato.fecha_inicio|date:"d/m/Y" }}</td>
+                <td>
+                    <a href="{% url 'inventario:registrar_devolucion' item.contrato.pk %}" 
+                       class="btn btn-sm btn-primary">
+                        🔄 Devolver Equipos
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">
+        <strong>⚠️ No hay contratos con equipos instalados.</strong>
+        <p>Primero debes instalar equipos a través de una salida masiva.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

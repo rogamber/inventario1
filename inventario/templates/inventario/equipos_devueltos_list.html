@@ -1,0 +1,68 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Equipos Devueltos{% endblock %}
+
+{% block content %}
+<div class="equipos-list">
+    <div class="header-actions">
+        <h1>🔄 Equipos Devueltos ({{ total }})</h1>
+        <a href="{% url 'inventario:seleccionar_contrato_devolucion' %}" class="btn btn-primary">
+            ➕ Nueva Devolución
+        </a>
+    </div>
+
+    <form method="get" class="search-form">
+        <input type="text" name="q" 
+               placeholder="Buscar por serie, producto, contrato, cliente o boleta..." 
+               value="{{ query }}">
+        <button type="submit" class="btn">Buscar</button>
+        {% if query %}
+            <a href="{% url 'inventario:lista_equipos_devueltos' %}" class="btn btn-secondary">Limpiar</a>
+        {% endif %}
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Boleta Devolución</th>
+                <th>N° Serie</th>
+                <th>Producto</th>
+                <th>Contrato</th>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th>Fecha Devolución</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for equipo in equipos %}
+            <tr>
+                <td><strong>{{ equipo.numero_boleta_devolucion }}</strong></td>
+                <td><span class="badge badge-warning">{{ equipo.numero_serie }}</span></td>
+                <td>{{ equipo.producto_nombre }}</td>
+                <td>{{ equipo.numero_contrato }}</td>
+                <td>{{ equipo.cliente_nombre }}</td>
+                <td>
+                    <span class="badge 
+                        {% if equipo.estado_devolucion == 'recibido' %}badge-info
+                        {% elif equipo.estado_devolucion == 'revisado' %}badge-success
+                        {% elif equipo.estado_devolucion == 'reparacion' %}badge-warning
+                        {% else %}badge-danger{% endif %}">
+                        {{ equipo.get_estado_devolucion_display }}
+                    </span>
+                </td>
+                <td>{{ equipo.fecha_devolucion|date:"d/m/Y H:i" }}</td>
+                <td>
+                    <a href="{% url 'inventario:detalle_equipo_devuelto' equipo.pk %}" 
+                       class="btn btn-sm btn-info">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">No hay equipos devueltos.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

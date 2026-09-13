@@ -1,0 +1,72 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle Equipo Devuelto{% endblock %}
+
+{% block content %}
+<div class="movement-detail">
+    <div class="header-actions">
+        <h1>🔄 Detalle del Equipo Devuelto</h1>
+        <a href="{% url 'inventario:lista_equipos_devueltos' %}" class="btn btn-secondary">← Volver</a>
+    </div>
+
+    <!-- Información del Producto -->
+    <div class="detail-card">
+        <h3>📦 Información del Producto</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>Código:</strong> {{ equipo.producto_codigo }}</p>
+                <p><strong>Producto:</strong> {{ equipo.producto_nombre }}</p>
+                <p><strong>Categoría:</strong> {{ equipo.producto_categoria|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>N° Serie:</strong> 
+                    <span class="badge badge-warning">{{ equipo.numero_serie }}</span>
+                </p>
+                <p><strong>Estado al Devolver:</strong> 
+                    <span class="badge badge-info">{{ equipo.estado_final }}</span>
+                </p>
+                <p><strong>Estado Actual:</strong> 
+                    <span class="badge 
+                        {% if equipo.estado_devolucion == 'recibido' %}badge-info
+                        {% elif equipo.estado_devolucion == 'revisado' %}badge-success
+                        {% elif equipo.estado_devolucion == 'reparacion' %}badge-warning
+                        {% else %}badge-danger{% endif %}">
+                        {{ equipo.get_estado_devolucion_display }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Contrato -->
+    <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #27ae60;">
+        <h3>📄 Contrato Original</h3>
+        <p><strong>N° Contrato:</strong> {{ equipo.numero_contrato }}</p>
+        <p><strong>Cliente:</strong> {{ equipo.cliente_nombre }}</p>
+    </div>
+
+    <!-- Información de la Devolución -->
+    <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #e74c3c;">
+        <h3>🔄 Información de la Devolución</h3>
+        <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+            <div>
+                <p><strong>Boleta Devolución:</strong> {{ equipo.numero_boleta_devolucion }}</p>
+                <p><strong>Adendum:</strong> {{ equipo.numero_adendum|default:"-" }}</p>
+                <p><strong>Bodega Recepción:</strong> {{ equipo.bodega_recepcion_nombre }}</p>
+                <p><strong>Ubicación:</strong> {{ equipo.bodega_recepcion_ubicacion|default:"-" }}</p>
+            </div>
+            <div>
+                <p><strong>Fecha Devolución:</strong> {{ equipo.fecha_devolucion|date:"d/m/Y H:i" }}</p>
+                <p><strong>Usuario Recepción:</strong> {{ equipo.usuario_recepcion }}</p>
+                <p><strong>Notas:</strong> {{ equipo.notas|default:"-" }}</p>
+            </div>
+        </div>
+        {% if equipo.motivo_devolucion %}
+        <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+            <strong>📝 Motivo de Devolución:</strong>
+            <p style="margin-top: 5px;">{{ equipo.motivo_devolucion }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
