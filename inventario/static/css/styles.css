@@ -977,3 +977,36 @@ input[type="checkbox"] {
     cursor: pointer;
     user-select: none;
 }
+
+/* ============================================================
+   BÚSQUEDA POR SERIE
+   ============================================================ */
+.buscar-serie {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.buscar-serie .form-container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.resultado-serie .alert-success {
+    background: #d4edda;
+    border-left: 5px solid #28a745;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.resultado-serie .detail-card {
+    margin-bottom: 20px;
+}
+
+.resultado-serie .detail-card h3 {
+    border-bottom: 2px solid #ecf0f1;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
