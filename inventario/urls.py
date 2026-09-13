@@ -47,4 +47,26 @@ urlpatterns = [
 
     #obtener unidades disponibles (AJAX)
     path('api/producto/<int:producto_id>/unidades/', views.obtener_unidades_producto, name='obtener_unidades_producto'),
-]
+
+    # Búsqueda por serie
+    path('buscar-serie/', views.buscar_serie, name='buscar_serie'),
+
+    # Salidas masivas (detalle y PDF específicos)
+    path('movimiento/masivo/salida/<int:pk>/', views.detalle_salida_masiva, name='detalle_salida_masiva'),
+    path('movimiento/masivo/salida/<int:pk>/pdf/', views.generar_pdf_salida, name='generar_pdf_salida'),
+
+    # Equipos instalados
+    path('equipos-instalados/', views.lista_equipos_instalados, name='lista_equipos_instalados'),
+    path('equipo-instalado/<int:pk>/', views.detalle_equipo_instalado, name='detalle_equipo_instalado'),
+
+    # Clientes
+    path('clientes/', views.lista_clientes, name='lista_clientes'),
+    path('cliente/nuevo/', views.crear_cliente, name='crear_cliente'),
+    path('cliente/<int:pk>/', views.detalle_cliente, name='detalle_cliente'),
+    path('cliente/<int:pk>/editar/', views.editar_cliente, name='editar_cliente'),
+    path('cliente/<int:pk>/eliminar/', views.eliminar_cliente, name='eliminar_cliente'),
+
+    # Reporte por cliente
+    path('reporte/equipos-por-cliente/', views.reporte_equipos_por_cliente, name='reporte_equipos_por_cliente'), 
+    path('reporte/cliente/<int:cliente_id>/pdf/', views.generar_pdf_reporte_cliente, name='generar_pdf_reporte_cliente'),
+ ]

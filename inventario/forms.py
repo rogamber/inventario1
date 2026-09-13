@@ -1,9 +1,8 @@
 from django import forms
 from .models import (
     Producto, Movimiento, Bodega, Inventario, Categoria,
-    MovimientoMasivo, Unidad
+    MovimientoMasivo, Unidad, EstadoUnidad , Cliente
 )
-
 
 class ProductoForm(forms.ModelForm):
     cantidad_inicial = forms.IntegerField(
@@ -149,6 +148,13 @@ class SalidaMasivaForm(forms.Form):
         label='Bodega de origen',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
+    cliente = forms.ModelChoiceField(  # ← NUEVO
+        queryset=Cliente.objects.filter(activo=True),
+        label='Cliente',
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        empty_label='--- Seleccione un cliente ---'
+    )
     numero_adendum = forms.CharField(
         max_length=50,
         required=True,
@@ -214,7 +220,11 @@ class UnidadForm(forms.ModelForm):
             'bodega': forms.Select(attrs={'class': 'form-control'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
         }
-
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo mostrar estados activos
+        self.fields['estado'].queryset = EstadoUnidad.objects.filter(activo=True)
 
 class UnidadMasivaForm(forms.Form):
     """Formulario para agregar varias unidades de una vez"""
@@ -244,9 +254,23 @@ class UnidadMasivaForm(forms.Form):
         label='Bodega',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    estado = forms.ChoiceField(
-        choices=Unidad.ESTADO_CHOICES,
-        initial='disponible',
+    estado = forms.ModelChoiceField(  # ← Cambio: ModelChoiceField en lugar de ChoiceField
+        queryset=EstadoUnidad.objects.filter(activo=True),
         label='Estado',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
+
+class ClienteForm(forms.ModelForm):  # ← NUEVO
+    class Meta:
+        model = Cliente
+        fields = ['nombre', 'cedula', 'contacto', 'telefono', 'email', 'direccion', 'notas', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control'}),
+            'cedula': forms.TextInput(attrs={'class': 'form-control'}),
+            'contacto': forms.TextInput(attrs={'class': 'form-control'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'notas': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+

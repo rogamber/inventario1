@@ -5,14 +5,14 @@ from django.contrib import messages
 from django.db import models
 from django.db.models import Q, Sum
 from django.urls import reverse_lazy
-from .models import Producto, Categoria, Movimiento, Bodega, Inventario
+from .models import Producto, Categoria, Movimiento, Bodega, Inventario , Cliente 
 from .forms import ProductoForm, MovimientoForm, EntradaForm, SalidaForm, TrasladoForm, InventarioForm , TrasladoMasivoForm
 import json
 from django.http import JsonResponse
 from django.core.serializers.json import DjangoJSONEncoder
 from .forms import EntradaMasivaForm, SalidaMasivaForm
-from .models import MovimientoMasivo , Unidad 
-from .forms import UnidadForm, UnidadMasivaForm
+from .models import MovimientoMasivo , Unidad , EstadoUnidad , EquipoInstalado
+from .forms import UnidadForm, UnidadMasivaForm , ClienteForm
 import io
 from django.http import FileResponse
 from django.template.loader import render_to_string
@@ -22,7 +22,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from django.http import HttpResponse
 from datetime import datetime
-
+from django.utils import timezone
 
 # Vista de inicio de sesión personalizada
 class CustomLoginView(LoginView):
@@ -493,9 +493,10 @@ def entrada_masiva(request):
     }
     return render(request, 'inventario/movimiento_masivo_form.html', context)
 
+
 @login_required
 def salida_masiva(request):
-    """Vista para registrar salida masiva de productos"""
+    """Vista para registrar salida masiva de productos (equipos definitivos)"""
     if request.method == 'POST':
         form = SalidaMasivaForm(request.POST)
         productos_json = request.POST.get('productos_json', '[]')
@@ -505,54 +506,86 @@ def salida_masiva(request):
                 productos = json.loads(productos_json)
             except json.JSONDecodeError:
                 messages.error(request, 'Error al procesar los productos.')
-                return render(request, 'inventario/movimiento_masivo_form.html', {
+                return render(request, 'inventario/salida_masiva_form.html', {
                     'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
                 })
             
             if not productos:
                 messages.error(request, 'Debes agregar al menos un producto.')
-                return render(request, 'inventario/movimiento_masivo_form.html', {
+                return render(request, 'inventario/salida_masiva_form.html', {
                     'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
                 })
             
+            cliente = form.cleaned_data['cliente']  # ← NUEVO
             bodega_origen = form.cleaned_data['bodega_origen']
             
-            # Validar stock antes de procesar
+            # ============================================================
+            # VALIDAR PRODUCTOS
+            # ============================================================
             errores = []
+            productos_validos = []
+            
             for prod_data in productos:
                 try:
                     producto = Producto.objects.get(pk=prod_data['producto_id'])
                     
                     if producto.maneja_serie:
-                        # Validar que las unidades existan y estén en la bodega
                         series = prod_data.get('series', [])
+                        if not series:
+                            errores.append(f"{producto.nombre}: no hay series seleccionadas")
+                            continue
+                        
+                        series_validas = []
                         for numero_serie in series:
                             try:
-                                unidad = Unidad.objects.get(
+                                Unidad.objects.get(
                                     producto=producto,
                                     numero_serie=numero_serie,
                                     bodega=bodega_origen
                                 )
+                                series_validas.append(numero_serie)
                             except Unidad.DoesNotExist:
-                                errores.append(f"{producto.nombre} - {numero_serie}: unidad no encontrada en la bodega")
+                                errores.append(f"{producto.nombre} - {numero_serie}: unidad no encontrada en origen")
+                        
+                        if series_validas:
+                            prod_data['series'] = series_validas
+                            productos_validos.append(prod_data)
                     else:
-                        cantidad = int(prod_data.get('cantidad', 1))
+                        cantidad = int(prod_data.get('cantidad', 0))
+                        if cantidad <= 0:
+                            errores.append(f"{producto.nombre}: cantidad inválida")
+                            continue
+                        
                         inventario = Inventario.objects.filter(
                             producto=producto, bodega=bodega_origen
                         ).first()
+                        
                         if not inventario or inventario.cantidad < cantidad:
                             disponible = inventario.cantidad if inventario else 0
                             errores.append(f"{producto.nombre}: stock insuficiente (disponible: {disponible})")
-                except (Producto.DoesNotExist, ValueError, KeyError):
+                            continue
+                        
+                        productos_validos.append(prod_data)
+                except (Producto.DoesNotExist, ValueError, KeyError) as e:
+                    errores.append(f"Error con producto: {str(e)}")
                     continue
             
             if errores:
                 for error in errores:
                     messages.error(request, error)
-                return render(request, 'inventario/movimiento_masivo_form.html', {
+                return render(request, 'inventario/salida_masiva_form.html', {
                     'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
                 })
             
+            if not productos_validos:
+                messages.error(request, 'No hay productos válidos para procesar.')
+                return render(request, 'inventario/salida_masiva_form.html', {
+                    'form': form, 'titulo': 'Salida Masiva', 'tipo': 'salida'
+                })
+            
+            # ============================================================
+            # CREAR MOVIMIENTO MASIVO (ANTES de procesar)
+            # ============================================================
             movimiento_masivo = MovimientoMasivo.objects.create(
                 tipo=MovimientoMasivo.TIPO_SALIDA,
                 numero_adendum=form.cleaned_data['numero_adendum'],
@@ -561,13 +594,24 @@ def salida_masiva(request):
                 usuario=request.user
             )
             
-            for prod_data in productos:
+            # ============================================================
+            # PROCESAR PRODUCTOS
+            # ============================================================
+            equipos_movidos = 0
+            
+            # Obtener el estado "Instalado" una sola vez
+            estado_instalado = EstadoUnidad.objects.filter(nombre='Instalado').first()
+            
+            for prod_data in productos_validos:
                 try:
                     producto = Producto.objects.get(pk=prod_data['producto_id'])
                     
                     if producto.maneja_serie:
-                        # Salida de unidades individuales
+                        # ============================================================
+                        # PRODUCTOS CON SERIE: Cambiar estado a Instalado y mover
+                        # ============================================================
                         series = prod_data.get('series', [])
+                        
                         for numero_serie in series:
                             try:
                                 unidad = Unidad.objects.get(
@@ -578,6 +622,13 @@ def salida_masiva(request):
                             except Unidad.DoesNotExist:
                                 continue
                             
+                            # 1. Cambiar el estado de la unidad a "Instalado"
+                            if estado_instalado:
+                                unidad.estado = estado_instalado
+                                unidad.bodega = None  # ← AGREGAR
+                                unidad.save()
+                            
+                            # 2. Crear movimiento (historial)
                             Movimiento.objects.create(
                                 tipo=Movimiento.TIPO_SALIDA,
                                 producto=producto,
@@ -589,23 +640,47 @@ def salida_masiva(request):
                                 unidad=unidad
                             )
                             
-                            # Eliminar la unidad (salida definitiva)
-                            # O cambiar su estado:
-                            unidad.estado = 'vendido'
-                            unidad.bodega = None
-                            unidad.save()
+                            # 3. Crear registro en EquipoInstalado
+                            EquipoInstalado.objects.create(
+                                cliente=cliente,  # ← NUEVO
+                                producto_codigo=producto.codigo,
+                                producto_nombre=producto.nombre,
+                                producto_categoria=producto.categoria.nombre if producto.categoria else '',
+                                numero_serie=unidad.numero_serie,
+                                estado_final='Instalado',
+                                notas=unidad.notas,
+                                numero_boleta=movimiento_masivo.numero_boleta,
+                                numero_adendum=movimiento_masivo.numero_adendum,
+                                descripcion_salida=movimiento_masivo.descripcion,
+                                bodega_origen_nombre=bodega_origen.nombre,
+                                bodega_origen_ubicacion=bodega_origen.ubicacion or '',
+                                fecha_salida=timezone.now(),
+                                usuario_salida=request.user.username,
+                                unidad_original_id=unidad.id,
+                                movimiento_masivo_id=movimiento_masivo.id
+                            )
                             
-                            # Actualizar inventario
+                            # 4. Rebajar del inventario de la bodega
                             try:
-                                inventario = Inventario.objects.get(
+                                inv_origen = Inventario.objects.get(
                                     producto=producto, bodega=bodega_origen
                                 )
-                                inventario.cantidad -= 1
-                                inventario.save()
+                                inv_origen.cantidad -= 1
+                                if inv_origen.cantidad < 0:
+                                    inv_origen.cantidad = 0
+                                inv_origen.save()
                             except Inventario.DoesNotExist:
                                 pass
+                            
+                            # 5. Eliminar la unidad
+                            #unidad.delete()
+                            
+                            equipos_movidos += 1
                     else:
-                        cantidad = int(prod_data.get('cantidad', 1))
+                        # ============================================================
+                        # PRODUCTOS SIN SERIE: Solo rebajar stock
+                        # ============================================================
+                        cantidad = int(prod_data.get('cantidad', 0))
                         
                         Movimiento.objects.create(
                             tipo=Movimiento.TIPO_SALIDA,
@@ -617,17 +692,25 @@ def salida_masiva(request):
                             movimiento_masivo=movimiento_masivo
                         )
                         
-                        inventario = Inventario.objects.get(
-                            producto=producto, bodega=bodega_origen
-                        )
-                        inventario.cantidad -= cantidad
-                        inventario.save()
+                        try:
+                            inv_origen = Inventario.objects.get(
+                                producto=producto, bodega=bodega_origen
+                            )
+                            inv_origen.cantidad -= cantidad
+                            if inv_origen.cantidad < 0:
+                                inv_origen.cantidad = 0
+                            inv_origen.save()
+                        except Inventario.DoesNotExist:
+                            pass
                         
                 except (Producto.DoesNotExist, ValueError, KeyError):
                     continue
             
-            messages.success(request, f'Salida masiva registrada. Boleta: {movimiento_masivo.numero_boleta}')
-            return redirect('inventario:detalle_movimiento_masivo', pk=movimiento_masivo.pk)
+            messages.success(
+                request, 
+                f'Salida masiva registrada. Boleta: {movimiento_masivo.numero_boleta} | {equipos_movidos} equipos movidos a "Equipos Instalados"'
+            )
+            return redirect('inventario:detalle_salida_masiva', pk=movimiento_masivo.pk)
     else:
         form = SalidaMasivaForm()
     
@@ -643,8 +726,7 @@ def salida_masiva(request):
         'tipo': 'salida',
         'productos_json': json.dumps(productos_list),
     }
-    return render(request, 'inventario/movimiento_masivo_form.html', context)
-
+    return render(request, 'inventario/salida_masiva_form.html', context)
 
 @login_required
 def detalle_movimiento_masivo(request, pk):
@@ -1174,14 +1256,21 @@ def exportar_bodega_excel(request, bodega_id):
 def lista_unidades(request, producto_id):
     """Lista todas las unidades de un producto"""
     producto = get_object_or_404(Producto, pk=producto_id)
-    unidades = Unidad.objects.filter(producto=producto).select_related('bodega')
+    unidades = Unidad.objects.filter(
+    producto=producto
+    ).exclude(
+    estado__nombre='Instalado'
+    ).select_related('bodega', 'estado')
+
     
     # Estadísticas
     total = unidades.count()
-    disponibles = unidades.filter(estado='disponible').count()
-    vendidos = unidades.filter(estado='vendido').count()
-    dañados = unidades.filter(estado='dañado').count()
-    reservados = unidades.filter(estado='reservado').count()
+    
+    # Contar por estado (dinámico)
+    disponibles = unidades.filter(estado__nombre='Disponible').count()
+    reservados = unidades.filter(estado__nombre='Reservado').count()
+    vendidos = unidades.filter(estado__nombre='Vendido').count()
+    dañados = unidades.filter(estado__nombre='Dañado').count()
     
     context = {
         'producto': producto,
@@ -1392,7 +1481,13 @@ def obtener_unidades_producto(request, producto_id):
     producto = get_object_or_404(Producto, pk=producto_id)
     bodega_id = request.GET.get('bodega_id')
     
-    unidades = Unidad.objects.filter(producto=producto, estado='disponible')
+    # Filtrar por estado Disponible (usando el nombre del FK)
+    unidades = Unidad.objects.filter(
+    producto=producto,
+    estado__nombre='Disponible',
+    bodega__isnull=False
+    )
+
     
     if bodega_id:
         unidades = unidades.filter(bodega_id=bodega_id)
@@ -1401,7 +1496,342 @@ def obtener_unidades_producto(request, producto_id):
         'id': u.id,
         'numero_serie': u.numero_serie,
         'bodega': u.bodega.nombre if u.bodega else 'Sin asignar',
-        'estado': u.get_estado_display(),
+        'estado': u.estado.nombre if u.estado else 'Sin estado',
     } for u in unidades]
     
     return JsonResponse({'unidades': data})
+
+# ============================================================
+# BÚSQUEDA POR NÚMERO DE SERIE
+# ============================================================
+
+@login_required
+def buscar_serie(request):
+    """Busca una unidad por número de serie y muestra todos sus datos"""
+    serie = request.GET.get('serie', '').strip()
+    unidad = None
+    movimientos = []
+    error = None
+    
+    if serie:
+        try:
+            unidad = Unidad.objects.select_related(
+                'producto', 'producto__categoria', 'bodega', 'estado'
+            ).get(numero_serie__iexact=serie)
+            
+            # Obtener los últimos movimientos de esta unidad
+            movimientos = Movimiento.objects.filter(
+                unidad=unidad
+            ).select_related(
+                'bodega_origen', 'bodega_destino', 'usuario', 'movimiento_masivo'
+            ).order_by('-created_at')[:10]
+            
+        except Unidad.DoesNotExist:
+            error = f'No se encontró ninguna unidad con el número de serie "{serie}"'
+        except Unidad.MultipleObjectsReturned:
+            error = f'Se encontraron múltiples unidades con el número de serie "{serie}"'
+    
+    context = {
+        'serie': serie,
+        'unidad': unidad,
+        'movimientos': movimientos,
+        'error': error,
+    }
+    return render(request, 'inventario/buscar_serie.html', context)
+
+# ============================================================
+# DETALLE DE SALIDA MASIVA (template específico)
+# ============================================================
+
+@login_required
+def detalle_salida_masiva(request, pk):
+    """Muestra el detalle de una salida masiva"""
+    movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
+    movimientos_detalle = movimiento_masivo.movimientos_detalle.select_related(
+        'producto', 'unidad'
+    ).all()
+    
+    # Buscar los equipos instalados asociados a esta boleta
+    equipos_instalados = EquipoInstalado.objects.filter(
+        numero_boleta=movimiento_masivo.numero_boleta
+    )
+    
+    context = {
+        'movimiento_masivo': movimiento_masivo,
+        'movimientos_detalle': movimientos_detalle,
+        'equipos_instalados': equipos_instalados,
+        'total_equipos': equipos_instalados.count(),
+    }
+    return render(request, 'inventario/salida_masiva_detail.html', context)
+
+
+# ============================================================
+# PDF DE SALIDA MASIVA
+# ============================================================
+
+@login_required
+def generar_pdf_salida(request, pk):
+    """Genera un PDF de la salida masiva con 25 items por página"""
+    movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
+    movimientos_detalle = list(movimiento_masivo.movimientos_detalle.select_related(
+        'producto', 'unidad'
+    ).all())
+    
+    # Dividir en bloques de 25 items
+    ITEMS_POR_PAGINA = 25
+    bloques = []
+    
+    for i in range(0, len(movimientos_detalle), ITEMS_POR_PAGINA):
+        bloque = movimientos_detalle[i:i + ITEMS_POR_PAGINA]
+        bloques.append(bloque)
+    
+    if not bloques:
+        bloques = [[]]
+    
+    # Agregar contador global
+    contador_global = 1
+    for bloque in bloques:
+        for mov in bloque:
+            mov.contador = contador_global
+            contador_global += 1
+    
+    context = {
+        'movimiento': movimiento_masivo,
+        'bloques': bloques,
+        'total_items': len(movimientos_detalle),
+        'total_paginas': len(bloques),
+    }
+    
+    html_string = render_to_string('inventario/salida_pdf.html', context)
+    
+    buffer = io.BytesIO()
+    HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf(buffer)
+    buffer.seek(0)
+    
+    return FileResponse(
+        buffer,
+        as_attachment=True,
+        filename=f'salida_{movimiento_masivo.numero_boleta}.pdf'
+    )
+
+
+# ============================================================
+# LISTA DE EQUIPOS INSTALADOS
+# ============================================================
+
+@login_required
+def lista_equipos_instalados(request):
+    """Lista todos los equipos instalados"""
+    query = request.GET.get('q', '')
+    equipos = EquipoInstalado.objects.all()
+    
+    if query:
+        equipos = equipos.filter(
+            Q(numero_serie__icontains=query) |
+            Q(producto_nombre__icontains=query) |
+            Q(producto_codigo__icontains=query) |
+            Q(numero_boleta__icontains=query)
+        )
+    
+    context = {
+        'equipos': equipos,
+        'query': query,
+        'total': equipos.count(),
+    }
+    return render(request, 'inventario/equipos_instalados_list.html', context)
+
+
+@login_required
+def detalle_equipo_instalado(request, pk):
+    """Detalle de un equipo instalado"""
+    equipo = get_object_or_404(EquipoInstalado, pk=pk)
+    
+    context = {
+        'equipo': equipo,
+    }
+    return render(request, 'inventario/equipo_instalado_detail.html', context)
+
+
+# ============================================================
+# GESTIÓN DE CLIENTES
+# ============================================================
+
+@login_required
+def lista_clientes(request):
+    """Lista todos los clientes"""
+    query = request.GET.get('q', '').strip()
+    clientes = Cliente.objects.all()
+    
+    if query:
+        clientes = clientes.filter(
+            Q(nombre__icontains=query) |
+            Q(cedula__icontains=query) |
+            Q(contacto__icontains=query) |
+            Q(telefono__icontains=query) |
+            Q(email__icontains=query)
+        )
+    
+    clientes = clientes.order_by('nombre')
+    
+    context = {
+        'clientes': clientes,
+        'query': query,
+        'total': clientes.count(),
+    }
+    return render(request, 'inventario/cliente_list.html', context)
+
+
+@login_required
+def crear_cliente(request):
+    """Crea un nuevo cliente"""
+    if request.method == 'POST':
+        form = ClienteForm(request.POST)
+        if form.is_valid():
+            cliente = form.save()
+            messages.success(request, f'Cliente "{cliente.nombre}" creado correctamente.')
+            return redirect('inventario:detalle_cliente', pk=cliente.pk)
+    else:
+        form = ClienteForm()
+    
+    context = {'form': form, 'titulo': 'Nuevo Cliente'}
+    return render(request, 'inventario/cliente_form.html', context)
+
+
+@login_required
+def editar_cliente(request, pk):
+    """Edita un cliente existente"""
+    cliente = get_object_or_404(Cliente, pk=pk)
+    
+    if request.method == 'POST':
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            cliente = form.save()
+            messages.success(request, f'Cliente "{cliente.nombre}" actualizado.')
+            return redirect('inventario:detalle_cliente', pk=cliente.pk)
+    else:
+        form = ClienteForm(instance=cliente)
+    
+    context = {
+        'form': form,
+        'cliente': cliente,
+        'titulo': f'Editar Cliente - {cliente.nombre}',
+    }
+    return render(request, 'inventario/cliente_form.html', context)
+
+
+@login_required
+def detalle_cliente(request, pk):
+    """Detalle de un cliente con sus equipos instalados"""
+    cliente = get_object_or_404(Cliente, pk=pk)
+    equipos = cliente.equipos_instalados.all().order_by('-fecha_salida')
+    
+    context = {
+        'cliente': cliente,
+        'equipos': equipos,
+        'total_equipos': equipos.count(),
+    }
+    return render(request, 'inventario/cliente_detail.html', context)
+
+
+@login_required
+def eliminar_cliente(request, pk):
+    """Elimina un cliente"""
+    cliente = get_object_or_404(Cliente, pk=pk)
+    
+    if request.method == 'POST':
+        nombre = cliente.nombre
+        cliente.delete()
+        messages.success(request, f'Cliente "{nombre}" eliminado.')
+        return redirect('inventario:lista_clientes')
+    
+    context = {'cliente': cliente}
+    return render(request, 'inventario/cliente_confirm_delete.html', context)
+
+
+# ============================================================
+# REPORTE DE EQUIPOS POR CLIENTE
+# ============================================================
+
+@login_required
+def reporte_equipos_por_cliente(request):
+    """Reporte de equipos instalados por cliente"""
+    clientes = Cliente.objects.filter(activo=True).order_by('nombre')
+    
+    # Obtener cliente seleccionado (si hay)
+    cliente_id = request.GET.get('cliente_id')
+    cliente_seleccionado = None
+    equipos = []
+    
+    if cliente_id:
+        try:
+            cliente_seleccionado = Cliente.objects.get(pk=cliente_id)
+            equipos = cliente_seleccionado.equipos_instalados.all().order_by('-fecha_salida')
+        except Cliente.DoesNotExist:
+            pass
+    
+    # Estadísticas generales
+    total_clientes = clientes.count()
+    total_equipos = EquipoInstalado.objects.count()
+    
+    # Clientes con equipos
+    clientes_con_equipos = []
+    for c in clientes:
+        total = c.equipos_instalados.count()
+        if total > 0:
+            clientes_con_equipos.append({
+                'cliente': c,
+                'total': total,
+            })
+    
+    # Ordenar por total
+    clientes_con_equipos.sort(key=lambda x: x['total'], reverse=True)
+    
+    context = {
+        'clientes': clientes,
+        'cliente_seleccionado': cliente_seleccionado,
+        'equipos': equipos,
+        'total_clientes': total_clientes,
+        'total_equipos': total_equipos,
+        'clientes_con_equipos': clientes_con_equipos,
+    }
+    return render(request, 'inventario/reporte_equipos_por_cliente.html', context)
+
+
+@login_required
+def generar_pdf_reporte_cliente(request, cliente_id):
+    """Genera PDF del reporte de equipos de un cliente"""
+    cliente = get_object_or_404(Cliente, pk=cliente_id)
+    equipos = list(cliente.equipos_instalados.all().order_by('-fecha_salida'))
+    
+    # Dividir en bloques de 20 items
+    ITEMS_POR_PAGINA = 20
+    bloques = []
+    for i in range(0, len(equipos), ITEMS_POR_PAGINA):
+        bloques.append(equipos[i:i + ITEMS_POR_PAGINA])
+    if not bloques:
+        bloques = [[]]
+    
+    contador = 1
+    for bloque in bloques:
+        for eq in bloque:
+            eq.contador = contador
+            contador += 1
+    
+    context = {
+        'cliente': cliente,
+        'bloques': bloques,
+        'total_equipos': len(equipos),
+        'total_paginas': len(bloques),
+    }
+    
+    html_string = render_to_string('inventario/reporte_cliente_pdf.html', context)
+    buffer = io.BytesIO()
+    HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf(buffer)
+    buffer.seek(0)
+    
+    return FileResponse(
+        buffer,
+        as_attachment=True,
+        filename=f'reporte_{cliente.nombre.replace(" ", "_")}_{timezone.now().strftime("%Y%m%d")}.pdf'
+    )
+

@@ -2,6 +2,47 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 
+# ============================================================
+# CLIENTE
+# ============================================================
+
+class Cliente(models.Model):
+    """Clientes que reciben equipos instalados"""
+    
+    nombre = models.CharField(max_length=200, verbose_name='Nombre o Razón Social')
+    cedula = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='Cédula / RUC',
+        help_text='Cédula jurídica o física'
+    )
+    contacto = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name='Persona de Contacto'
+    )
+    telefono = models.CharField(max_length=50, blank=True, verbose_name='Teléfono')
+    email = models.EmailField(blank=True, verbose_name='Correo Electrónico')
+    direccion = models.TextField(blank=True, verbose_name='Dirección')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.nombre
+    
+    @property
+    def total_equipos(self):
+        """Total de equipos instalados para este cliente"""
+        return self.equipos_instalados.count()
+    
+    class Meta:
+        verbose_name = 'Cliente'
+        verbose_name_plural = 'Clientes'
+        ordering = ['nombre']
+
 
 # ============================================================
 # BODEGA
@@ -80,23 +121,73 @@ class Producto(models.Model):
         ordering = ['nombre']
 
 
+
 # ============================================================
-# UNIDAD (instancia física con número de serie)
+# ESTADO DE UNIDAD (DINÁMICO)
+# ============================================================
+
+class EstadoUnidad(models.Model):
+    """Estados posibles de una unidad (administrables desde el admin)"""
+    
+    COLORES = [
+        ('success', 'Verde (Éxito)'),
+        ('info', 'Azul (Info)'),
+        ('warning', 'Amarillo (Advertencia)'),
+        ('danger', 'Rojo (Peligro)'),
+        ('secondary', 'Gris (Neutro)'),
+        ('primary', 'Azul oscuro (Primario)'),
+        ('dark', 'Negro (Oscuro)'),
+    ]
+    
+    nombre = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Nombre del Estado'
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name='Descripción'
+    )
+    color = models.CharField(
+        max_length=20,
+        choices=COLORES,
+        default='secondary',
+        verbose_name='Color del Badge',
+        help_text='Color que se mostrará en las tablas'
+    )
+    es_estado_final = models.BooleanField(
+        default=False,
+        verbose_name='¿Es estado final?',
+        help_text='Marcar si la unidad ya no puede cambiar de estado (ej: Vendido)'
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name='Activo',
+        help_text='Desmarcar para ocultar este estado sin eliminarlo'
+    )
+    orden = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Orden',
+        help_text='Orden de aparición (menor número = primero)'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.nombre
+    
+    class Meta:
+        verbose_name = 'Estado de Unidad'
+        verbose_name_plural = 'Estados de Unidad'
+        ordering = ['orden', 'nombre']
+
+
+# ============================================================
+# UNIDAD
 # ============================================================
 
 class Unidad(models.Model):
     """Instancia física de un producto que maneja número de serie"""
-    ESTADO_DISPONIBLE = 'disponible'
-    ESTADO_VENDIDO = 'vendido'
-    ESTADO_DAÑADO = 'dañado'
-    ESTADO_RESERVADO = 'reservado'
-    
-    ESTADO_CHOICES = [
-        (ESTADO_DISPONIBLE, 'Disponible'),
-        (ESTADO_VENDIDO, 'Vendido'),
-        (ESTADO_DAÑADO, 'Dañado'),
-        (ESTADO_RESERVADO, 'Reservado'),
-    ]
     
     producto = models.ForeignKey(
         Producto,
@@ -115,10 +206,13 @@ class Unidad(models.Model):
         blank=True,
         related_name='unidades'
     )
-    estado = models.CharField(
-        max_length=20,
-        choices=ESTADO_CHOICES,
-        default=ESTADO_DISPONIBLE
+    estado = models.ForeignKey(
+        EstadoUnidad,
+        on_delete=models.PROTECT,
+        related_name='unidades',
+        null=True,
+        blank=True,
+        verbose_name='Estado'
     )
     notas = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -344,3 +438,57 @@ class Movimiento(models.Model):
         verbose_name = 'Movimiento'
         verbose_name_plural = 'Movimientos'
         ordering = ['-created_at']
+
+# ============================================================
+# EQUIPO INSTALADO (salidas definitivas)
+# ============================================================
+
+class EquipoInstalado(models.Model):
+    """Equipos que han salido del inventario (instalados, vendidos, etc.)"""
+    
+    # Información del producto
+    producto_codigo = models.CharField(max_length=50, verbose_name='Código del Producto')
+    producto_nombre = models.CharField(max_length=200, verbose_name='Nombre del Producto')
+    producto_categoria = models.CharField(max_length=100, blank=True, verbose_name='Categoría')
+
+    # NUEVO: Relación con cliente
+    cliente = models.ForeignKey(
+        Cliente,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='equipos_instalados',
+        verbose_name='Cliente'
+    )
+    
+    # Información de la unidad
+    numero_serie = models.CharField(max_length=100, unique=True, verbose_name='Número de Serie')
+    estado_final = models.CharField(max_length=50, verbose_name='Estado Final')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    
+    # Información del movimiento de salida
+    numero_boleta = models.CharField(max_length=50, verbose_name='N° Boleta')
+    numero_adendum = models.CharField(max_length=50, blank=True, null=True, verbose_name='N° Adendum')
+    descripcion_salida = models.TextField(blank=True, verbose_name='Descripción de la Salida')
+    
+    # Bodega de origen
+    bodega_origen_nombre = models.CharField(max_length=100, verbose_name='Bodega de Origen')
+    bodega_origen_ubicacion = models.CharField(max_length=200, blank=True, verbose_name='Ubicación')
+    
+    # Fechas y usuario
+    fecha_salida = models.DateTimeField(verbose_name='Fecha de Salida')
+    usuario_salida = models.CharField(max_length=150, verbose_name='Usuario que Registró')
+    
+    # Referencias
+    unidad_original_id = models.IntegerField(null=True, blank=True, verbose_name='ID Unidad Original')
+    movimiento_masivo_id = models.IntegerField(null=True, blank=True, verbose_name='ID Movimiento Masivo')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.numero_serie} - {self.producto_nombre}"
+    
+    class Meta:
+        verbose_name = 'Equipo Instalado'
+        verbose_name_plural = 'Equipos Instalados'
+        ordering = ['-fecha_salida']
