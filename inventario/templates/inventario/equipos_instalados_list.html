@@ -1,0 +1,58 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Equipos Instalados{% endblock %}
+
+{% block content %}
+<div class="equipos-list">
+    <div class="header-actions">
+        <h1>✅ Equipos Instalados ({{ total }})</h1>
+    </div>
+
+    <form method="get" class="search-form">
+        <input type="text" name="q" placeholder="Buscar por serie, producto, código o boleta..." value="{{ query }}">
+        <button type="submit" class="btn">Buscar</button>
+        {% if query %}
+            <a href="{% url 'inventario:lista_equipos_instalados' %}" class="btn btn-secondary">Limpiar</a>
+        {% endif %}
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>N° Serie</th>
+                <th>Producto</th>
+                <th>Código</th>
+                <th>Categoría</th>
+                <th>Estado Final</th>
+                <th>Boleta</th>
+                <th>Fecha Salida</th>
+                <th>Usuario</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for equipo in equipos %}
+            <tr>
+                <td><strong>{{ equipo.numero_serie }}</strong></td>
+                <td>{{ equipo.producto_nombre }}</td>
+                <td>{{ equipo.producto_codigo }}</td>
+                <td>{{ equipo.producto_categoria|default:"-" }}</td>
+                <td>
+                    <span class="badge badge-info">{{ equipo.estado_final }}</span>
+                </td>
+                <td>{{ equipo.numero_boleta }}</td>
+                <td>{{ equipo.fecha_salida|date:"d/m/Y H:i" }}</td>
+                <td>{{ equipo.usuario_salida }}</td>
+                <td>
+                    <a href="{% url 'inventario:detalle_equipo_instalado' equipo.pk %}" class="btn btn-sm btn-info">Ver</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="text-center">No hay equipos instalados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

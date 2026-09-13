@@ -1,0 +1,66 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+<div class="clientes-list">
+    <div class="header-actions">
+        <h1>👥 Clientes ({{ total }})</h1>
+        <a href="{% url 'inventario:crear_cliente' %}" class="btn btn-primary">+ Nuevo Cliente</a>
+    </div>
+
+    <form method="get" class="search-form">
+        <input type="text" name="q" placeholder="Buscar por nombre, cédula, contacto..." value="{{ query }}">
+        <button type="submit" class="btn">Buscar</button>
+        {% if query %}
+            <a href="{% url 'inventario:lista_clientes' %}" class="btn btn-secondary">Limpiar</a>
+        {% endif %}
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Cédula/RUC</th>
+                <th>Contacto</th>
+                <th>Teléfono</th>
+                <th>Equipos</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes %}
+            <tr>
+                <td>
+                    <a href="{% url 'inventario:detalle_cliente' cliente.pk %}">
+                        <strong>{{ cliente.nombre }}</strong>
+                    </a>
+                </td>
+                <td>{{ cliente.cedula|default:"-" }}</td>
+                <td>{{ cliente.contacto|default:"-" }}</td>
+                <td>{{ cliente.telefono|default:"-" }}</td>
+                <td>
+                    <span class="badge badge-info">{{ cliente.total_equipos }}</span>
+                </td>
+                <td>
+                    {% if cliente.activo %}
+                        <span class="badge badge-success">Activo</span>
+                    {% else %}
+                        <span class="badge badge-danger">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'inventario:detalle_cliente' cliente.pk %}" class="btn btn-sm btn-info">Ver</a>
+                    <a href="{% url 'inventario:editar_cliente' cliente.pk %}" class="btn btn-sm btn-secondary">✏️</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">No hay clientes registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

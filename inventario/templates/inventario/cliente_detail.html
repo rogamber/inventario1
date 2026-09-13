@@ -1,0 +1,87 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ cliente.nombre }}{% endblock %}
+
+{% block content %}
+<div class="cliente-detail">
+    <div class="header-actions">
+        <h1>👤 {{ cliente.nombre }}</h1>
+        <div>
+            <a href="{% url 'inventario:editar_cliente' cliente.pk %}" class="btn btn-secondary">✏️ Editar</a>
+            <a href="{% url 'inventario:eliminar_cliente' cliente.pk %}" class="btn btn-danger">🗑️ Eliminar</a>
+            <a href="{% url 'inventario:lista_clientes' %}" class="btn btn-info">← Volver</a>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-card">
+            <h3>📋 Información del Cliente</h3>
+            <p><strong>Cédula/RUC:</strong> {{ cliente.cedula|default:"-" }}</p>
+            <p><strong>Contacto:</strong> {{ cliente.contacto|default:"-" }}</p>
+            <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"-" }}</p>
+            <p><strong>Email:</strong> {{ cliente.email|default:"-" }}</p>
+            <p><strong>Dirección:</strong> {{ cliente.direccion|default:"-" }}</p>
+            <p><strong>Notas:</strong> {{ cliente.notas|default:"Sin notas" }}</p>
+            <p><strong>Estado:</strong>
+                {% if cliente.activo %}
+                    <span class="badge badge-success">Activo</span>
+                {% else %}
+                    <span class="badge badge-danger">Inactivo</span>
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="detail-card">
+            <h3>✅ Equipos Instalados</h3>
+            <p style="font-size: 2.5rem; text-align: center; color: #27ae60; font-weight: bold;">
+                {{ total_equipos }}
+            </p>
+            <p style="text-align: center; color: #7f8c8d;">equipos en total</p>
+            
+            <div class="stock-actions" style="margin-top: 15px;">
+                <a href="{% url 'inventario:generar_pdf_reporte_cliente' cliente.pk %}" 
+                   class="btn btn-primary" target="_blank">
+                    📄 Generar Reporte PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="movements">
+        <h2>📦 Equipos del Cliente</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° Serie</th>
+                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Boleta</th>
+                    <th>Adendum</th>
+                    <th>Fecha Salida</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td><strong>{{ equipo.numero_serie }}</strong></td>
+                    <td>{{ equipo.producto_nombre }}</td>
+                    <td>{{ equipo.producto_codigo }}</td>
+                    <td>{{ equipo.numero_boleta }}</td>
+                    <td>{{ equipo.numero_adendum|default:"-" }}</td>
+                    <td>{{ equipo.fecha_salida|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'inventario:detalle_equipo_instalado' equipo.pk %}" 
+                           class="btn btn-sm btn-info">Ver</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">Este cliente no tiene equipos instalados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

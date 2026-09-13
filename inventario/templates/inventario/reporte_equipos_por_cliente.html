@@ -1,0 +1,130 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Reporte de Equipos por Cliente{% endblock %}
+
+{% block content %}
+<div class="reporte-clientes">
+    <div class="header-actions">
+        <h1>📊 Reporte de Equipos por Cliente</h1>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ total_clientes }}</div>
+            <div class="stat-label">Clientes Activos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ total_equipos }}</div>
+            <div class="stat-label">Equipos Instalados</div>
+        </div>
+    </div>
+
+    <!-- Selector de cliente -->
+    <div class="form-container" style="max-width: 600px; margin: 20px auto;">
+        <form method="get">
+            <div class="form-group">
+                <label for="cliente_id">Selecciona un Cliente:</label>
+                <select name="cliente_id" id="cliente_id" class="form-control" onchange="this.form.submit()">
+                    <option value="">--- Todos los clientes ---</option>
+                    {% for c in clientes %}
+                        <option value="{{ c.pk }}" {% if cliente_seleccionado.pk == c.pk %}selected{% endif %}>
+                            {{ c.nombre }} ({{ c.total_equipos }} equipos)
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- Reporte por cliente seleccionado -->
+    {% if cliente_seleccionado %}
+    <div class="detail-card" style="margin-top: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2>👤 {{ cliente_seleccionado.nombre }}</h2>
+                <p><strong>Cédula:</strong> {{ cliente_seleccionado.cedula|default:"-" }}</p>
+                <p><strong>Contacto:</strong> {{ cliente_seleccionado.contacto|default:"-" }}</p>
+                <p><strong>Teléfono:</strong> {{ cliente_seleccionado.telefono|default:"-" }}</p>
+                <p><strong>Total equipos:</strong> {{ equipos|length }}</p>
+            </div>
+            <div>
+                <a href="{% url 'inventario:generar_pdf_reporte_cliente' cliente_seleccionado.pk %}" 
+                   class="btn btn-primary" target="_blank">
+                    📄 Generar PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="movements" style="margin-top: 20px;">
+        <h3>📦 Equipos del Cliente</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>N° Serie</th>
+                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>Boleta</th>
+                    <th>Fecha Salida</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ equipo.numero_serie }}</strong></td>
+                    <td>{{ equipo.producto_nombre }}</td>
+                    <td>{{ equipo.producto_codigo }}</td>
+                    <td>{{ equipo.numero_boleta }}</td>
+                    <td>{{ equipo.fecha_salida|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">Este cliente no tiene equipos.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <!-- Resumen general -->
+    <div class="movements" style="margin-top: 30px;">
+        <h3>📊 Resumen por Cliente</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Cliente</th>
+                    <th>Contacto</th>
+                    <th>Teléfono</th>
+                    <th>Equipos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in clientes_con_equipos %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ item.cliente.nombre }}</strong></td>
+                    <td>{{ item.cliente.contacto|default:"-" }}</td>
+                    <td>{{ item.cliente.telefono|default:"-" }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ item.total }}</span>
+                    </td>
+                    <td>
+                        <a href="?cliente_id={{ item.cliente.pk }}" class="btn btn-sm btn-info">Ver equipos</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">No hay clientes con equipos instalados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

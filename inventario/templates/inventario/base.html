@@ -13,6 +13,8 @@
             <div class="nav-container">
                 <div class="nav-brand">
                     <a href=" ">📦 Inventario</a>
+                    <!--<a href=" ">Usuario: {{ user.username }} </a>-->
+                    <span class="user-info">Usuario: {{ user.username }} </span>
                 </div>
                 <ul class="nav-menu">
                     {% if user.is_authenticated %}
@@ -21,38 +23,60 @@
                             <ul class="dropdown-menu">
                                 <li><a href="{% url 'inventario:lista_productos' %}">Lista de productos</a></li>
                                 <li><a href="{% url 'inventario:crear_producto' %}">Nuevo producto</a></li>
+                                <li><a href="{% url 'inventario:buscar_serie' %}">🔍 Equipos Sin Instalar</a></li>
                             </ul>
                         </li>
                         <li class="dropdown">
                             <a href="#">🏪 Bodegas</a>
                             <ul class="dropdown-menu">
-                                <li><a href="{% url 'inventario:lista_bodegas' %}">Lista de bodegas</a></li>
+                                <li><a href="{% url 'inventario:lista_bodegas' %}">Li sta de bodegas</a></li>
                                 <li><a href="{% url 'inventario:crear_bodega' %}">Nueva bodega</a></li>
                             </ul>
                         </li>
                         <li class="dropdown">
-                            <a href="#">📊 Movimientos</a>
+                            <a href="#">📊 Procesos</a>
                               <ul class="dropdown-menu">
-                                <li><a href="{% url 'inventario:lista_movimientos' %}">Historial</a></li>
+                            <!--<li><a href="{% url 'inventario:lista_movimientos' %}">Historial</a></li>
                                 <li><a href="{% url 'inventario:entrada_producto' %}">Entrada</a></li>
                                 <li><a href="{% url 'inventario:salida_producto' %}">Salida</a></li>
                                 <li><a href="{% url 'inventario:traslado_producto' %}">Traslado</a></li>
                                 <li style="border-top: 1px solid #eee; margin: 5px 0;"></li>
-                                <li><a href="{% url 'inventario:entrada_masiva' %}">📦 Entrada Masiva</a></li>
-                                <li><a href="{% url 'inventario:salida_masiva' %}">📦 Salida Masiva</a></li>
-                                <li><a href="{% url 'inventario:traslado_masivo' %}">📦 Traslado Masivo</a></li>
-                                <li><a href="{% url 'inventario:lista_movimientos_masivos' %}">📋 Historial Masivos</a></li>
+                                <li><a href="{% url 'inventario:entrada_masiva' %}">📦 Entrada Masiva</a></li>-->
+                                <li><a href="{% url 'inventario:salida_masiva' %}">📦 Salida</a></li>
+                                <li><a href="{% url 'inventario:traslado_masivo' %}">📦 Traslado</a></li>
+                                
                               </ul>
                         </li>
-                        <li><a href="{% url 'inventario:resumen_inventario' %}">📈 Resumen</a></li>
+
+                             <!-- Clientes -->
+                        <li class="dropdown">
+                           <a href="#">👥 Clientes</a>
+                          <ul class="dropdown-menu">
+                           <li><a href="{% url 'inventario:lista_clientes' %}">Lista de clientes</a></li>
+                           <li><a href="{% url 'inventario:crear_cliente' %}">Nuevo cliente</a></li>
+                           <li><a href="{% url 'inventario:reporte_equipos_por_cliente' %}">📊 Reporte por cliente</a></li>
+                          </ul>
+                        </li>
+                        
+                        
+                         <li class="dropdown">
+                         <a href="#">📤 Vistas</a>
+                         <ul class="dropdown-menu">
+                          <li><a href="{% url 'inventario:resumen_inventario' %}">📈 Resumen</a></li>
+                          <li><a href="{% url 'inventario:lista_equipos_instalados' %}">✅ Equipos Instalados</a></li>
+                          <li><a href="{% url 'inventario:lista_movimientos_masivos' %}">📋 Historial Movimientos</a></li>
+                         </ul>
+                          </li>
+
                         <li>
-                            <span class="user-info">{{ user.username }}</span>
+                            <!--<span class="user-info">{{ user.username }}</span>-->
                             <form method="post" action="{% url 'logout' %}" style="display: inline;">
                                 {% csrf_token %}
                                 <button type="submit" class="btn-logout">Cerrar sesión</button>
                             </form>
                         </li>
-                    {% else %}
+                       
+                          {% else %}
                         <li><a href="{% url 'login' %}">Iniciar sesión</a></li>
                     {% endif %}
                 </ul>

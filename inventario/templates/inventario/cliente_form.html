@@ -1,0 +1,72 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h1>{{ titulo }}</h1>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <div class="form-group">
+            <label for="{{ form.nombre.id_for_label }}">Nombre / Razón Social:</label>
+            {{ form.nombre }}
+            {{ form.nombre.errors }}
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.cedula.id_for_label }}">Cédula / RUC:</label>
+                {{ form.cedula }}
+                {{ form.cedula.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.contacto.id_for_label }}">Persona de Contacto:</label>
+                {{ form.contacto }}
+                {{ form.contacto.errors }}
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.telefono.id_for_label }}">Teléfono:</label>
+                {{ form.telefono }}
+                {{ form.telefono.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.email.id_for_label }}">Correo Electrónico:</label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.direccion.id_for_label }}">Dirección:</label>
+            {{ form.direccion }}
+            {{ form.direccion.errors }}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.notas.id_for_label }}">Notas:</label>
+            {{ form.notas }}
+            {{ form.notas.errors }}
+        </div>
+        
+        <div class="form-group">
+            <label>
+                {{ form.activo }} Cliente activo
+            </label>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+            <a href="{% url 'inventario:lista_clientes' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

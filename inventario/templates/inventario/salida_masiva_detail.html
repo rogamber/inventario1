@@ -1,0 +1,100 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle Salida Masiva{% endblock %}
+
+{% block content %}
+<div class="movement-detail">
+    <div class="header-actions">
+        <h1>📤 Detalle de Salida Masiva</h1>
+        <div>
+            <a href="{% url 'inventario:generar_pdf_salida' movimiento_masivo.pk %}" class="btn btn-primary" target="_blank">📄 Generar PDF</a>
+            <a href="{% url 'inventario:lista_movimientos_masivos' %}" class="btn btn-secondary">← Volver</a>
+        </div>
+    </div>
+    
+    <div class="detail-card">
+        <p><strong>Boleta:</strong> {{ movimiento_masivo.numero_boleta }}</p>
+        <p><strong>Tipo:</strong> 
+            <span class="badge badge-danger">{{ movimiento_masivo.get_tipo_display }}</span>
+        </p>
+        <p><strong>Adendum:</strong> 
+            {% if movimiento_masivo.numero_adendum %}
+                <span class="badge badge-info">{{ movimiento_masivo.numero_adendum }}</span>
+            {% else %}
+                -
+            {% endif %}
+        </p>
+        <p><strong>Bodega Origen:</strong> {{ movimiento_masivo.bodega.nombre }}</p>
+        <p><strong>Descripción:</strong> {{ movimiento_masivo.descripcion|default:"-" }}</p>
+        <p><strong>Usuario:</strong> {{ movimiento_masivo.usuario.username|default:"-" }}</p>
+        <p><strong>Fecha:</strong> {{ movimiento_masivo.created_at|date:"d/m/Y H:i" }}</p>
+        <p><strong>Total de items:</strong> {{ movimientos_detalle.count }}</p>
+    </div>
+
+    <div class="movements">
+        <h2>📤 Equipos que Salieron del Inventario</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Producto</th>
+                    <th>Código</th>
+                    <th>N° Serie</th>
+                    <th>Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimientos_detalle %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ mov.producto.nombre }}</td>
+                    <td>{{ mov.producto.codigo }}</td>
+                    <td>
+                        {% if mov.unidad %}
+                            <span class="badge badge-warning">{{ mov.unidad.numero_serie }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ mov.cantidad }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center">No hay productos en esta salida.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if equipos_instalados %}
+    <div class="movements" style="margin-top: 20px;">
+        <h2>✅ Equipos Instalados ({{ total_equipos }})</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° Serie</th>
+                    <th>Producto</th>
+                    <th>Estado Final</th>
+                    <th>Fecha Salida</th>
+                    <th>Usuario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos_instalados %}
+                <tr>
+                    <td><strong>{{ equipo.numero_serie }}</strong></td>
+                    <td>{{ equipo.producto_nombre }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ equipo.estado_final }}</span>
+                    </td>
+                    <td>{{ equipo.fecha_salida|date:"d/m/Y H:i" }}</td>
+                    <td>{{ equipo.usuario_salida }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,399 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="form-container" style="max-width: 1100px;">
+    <h1>{{ titulo }}</h1>
+    
+    <form method="post" id="form-masivo">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+        
+        <!-- Datos generales -->
+        <div class="form-row">
+            {% if form.bodega_origen %}
+            <div class="form-group">
+                <label for="{{ form.bodega_origen.id_for_label }}">{{ form.bodega_origen.label }}:</label>
+                {{ form.bodega_origen }}
+                {{ form.bodega_origen.errors }}
+            </div>
+            {% endif %}
+
+            <!-- ✅ NUEVO CAMPO CLIENTE -->
+            <div class="form-group">
+            <label for="{{ form.cliente.id_for_label }}">
+            {{ form.cliente.label }} <span style="color: #e74c3c;">*</span>
+            </label>
+             {{ form.cliente }}
+             {{ form.cliente.errors }}
+            </div>
+
+            {% if form.bodega_destino %}
+            <div class="form-group">
+                <label for="{{ form.bodega_destino.id_for_label }}">{{ form.bodega_destino.label }}:</label>
+                {{ form.bodega_destino }}
+                {{ form.bodega_destino.errors }}
+            </div>
+            {% endif %}
+            
+            <div class="form-group">
+                <label for="{{ form.numero_adendum.id_for_label }}">
+                    {{ form.numero_adendum.label }}
+                    {% if form.numero_adendum.field.required %}<span style="color: #e74c3c;">*</span>{% endif %}
+                </label>
+                {{ form.numero_adendum }}
+                {{ form.numero_adendum.errors }}
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.descripcion.id_for_label }}">Descripción:</label>
+            {{ form.descripcion }}
+            {{ form.descripcion.errors }}
+        </div>
+        
+        <!-- Agregar productos -->
+        <fieldset style="border: 2px solid #3498db; border-radius: 8px; padding: 15px; margin-top: 20px;">
+            <legend style="color: #3498db; font-weight: bold; padding: 0 10px;">📦 Productos</legend>
+            
+            <div class="form-row" style="align-items: flex-end;">
+                <div class="form-group" style="position: relative; flex: 3;">
+                    <label>Buscar producto:</label>
+                    <input type="text" id="buscar-producto" class="form-control" 
+                           placeholder="Escribe nombre o código..." autocomplete="off">
+                    <div id="resultados-busqueda" style="
+                        display: none;
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        right: 0;
+                        background: white;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        max-height: 250px;
+                        overflow-y: auto;
+                        z-index: 1000;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                    "></div>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Cantidad:</label>
+                    <input type="number" id="cantidad" class="form-control" min="1" value="1">
+                </div>
+                <div class="form-group" style="flex: 0;">
+                    <button type="button" class="btn btn-success" onclick="agregarProducto()">➕ Agregar</button>
+                </div>
+            </div>
+            
+            <!-- Selector de series (aparece solo para productos con serie) -->
+            <div id="selector-series" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #f39c12;">
+                <h4 style="margin-top: 0;">🔢 Seleccionar Series</h4>
+                <p style="color: #7f8c8d; font-size: 0.9rem;">
+                    Este producto maneja número de serie. Selecciona las unidades que deseas mover:
+                </p>
+                <div id="lista-series" style="max-height: 300px; overflow-y: auto; margin-bottom: 10px;">
+                    <!-- Aquí se cargarán las series -->
+                </div>
+                <button type="button" class="btn btn-primary" onclick="confirmarSeries()">✅ Confirmar Series</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelarSeries()">❌ Cancelar</button>
+            </div>
+            
+            <!-- Tabla de productos agregados -->
+            <table id="tabla-productos" style="margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Código</th>
+                        <th>Detalle</th>
+                        <th>Cantidad</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-tabla">
+                    <tr><td colspan="5" class="text-center">No hay productos agregados</td></tr>
+                </tbody>
+            </table>
+            
+            <input type="hidden" name="productos_json" id="productos_json" value="[]">
+        </fieldset>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Registrar {{ tipo|title }}</button>
+            <a href="{% url 'inventario:lista_movimientos' %}" class="btn btn-secondary">❌ Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script id="productos-data" type="application/json">{{ productos_json|safe }}</script>
+
+<script>
+// ============================================================
+// VARIABLES GLOBALES
+// ============================================================
+let productosAgregados = [];
+let productoSeleccionado = null;
+let seriesSeleccionadas = [];
+
+const todosLosProductos = JSON.parse(document.getElementById('productos-data').textContent);
+
+const inputBuscar = document.getElementById('buscar-producto');
+const resultadosDiv = document.getElementById('resultados-busqueda');
+const inputCantidad = document.getElementById('cantidad');
+const selectorSeries = document.getElementById('selector-series');
+const listaSeries = document.getElementById('lista-series');
+
+const TIPO = "{{ tipo }}";
+
+// ============================================================
+// BÚSQUEDA DE PRODUCTOS
+// ============================================================
+inputBuscar.addEventListener('input', function() {
+    const query = this.value.toLowerCase().trim();
+    
+    if (query.length < 1) {
+        resultadosDiv.style.display = 'none';
+        return;
+    }
+    
+    const resultados = todosLosProductos.filter(p => 
+        p.nombre.toLowerCase().includes(query) || 
+        p.codigo.toLowerCase().includes(query)
+    ).slice(0, 10);
+    
+    if (resultados.length === 0) {
+        resultadosDiv.innerHTML = '<div style="padding: 10px; color: #7f8c8d;">No se encontraron productos</div>';
+    } else {
+        resultadosDiv.innerHTML = resultados.map(p => `
+            <div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;"
+                 onmouseover="this.style.background='#f0f2f5'"
+                 onmouseout="this.style.background='white'"
+                 onclick="seleccionarProducto(${p.id})">
+                <strong>${p.nombre}</strong><br>
+                <small style="color: #7f8c8d;">
+                    Código: ${p.codigo}
+                    ${p.maneja_serie ? ' | 🔢 Maneja serie' : ''}
+                </small>
+            </div>
+        `).join('');
+    }
+    
+    resultadosDiv.style.display = 'block';
+});
+
+document.addEventListener('click', function(e) {
+    if (!inputBuscar.contains(e.target) && !resultadosDiv.contains(e.target)) {
+        resultadosDiv.style.display = 'none';
+    }
+});
+
+function seleccionarProducto(id) {
+    productoSeleccionado = todosLosProductos.find(p => p.id === id);
+    if (productoSeleccionado) {
+        inputBuscar.value = productoSeleccionado.nombre;
+        resultadosDiv.style.display = 'none';
+        
+        // Si maneja serie, cargar las series disponibles
+        if (productoSeleccionado.maneja_serie) {
+            cargarSeries(productoSeleccionado.id);
+        } else {
+            inputCantidad.focus();
+            inputCantidad.select();
+        }
+    }
+}
+
+// ============================================================
+// CARGAR SERIES DISPONIBLES
+// ============================================================
+function cargarSeries(productoId) {
+    const bodegaOrigen = document.querySelector('select[name="bodega_origen"]');
+    const bodegaId = bodegaOrigen ? bodegaOrigen.value : '';
+    
+    fetch(`/inventario/api/producto/${productoId}/unidades/?bodega_id=${bodegaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.unidades && data.unidades.length > 0) {
+                seriesSeleccionadas = [];
+                listaSeries.innerHTML = data.unidades.map(u => `
+                    <div style="padding: 8px; border-bottom: 1px solid #eee;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" value="${u.numero_serie}" 
+                                   onchange="toggleSerie(this, '${u.numero_serie}')"
+                                   style="margin-right: 10px; transform: scale(1.2);">
+                            <span>
+                                <strong>${u.numero_serie}</strong>
+                                <small style="color: #7f8c8d; display: block;">
+                                    Bodega: ${u.bodega} | Estado: ${u.estado}
+                                </small>
+                            </span>
+                        </label>
+                    </div>
+                `).join('');
+                selectorSeries.style.display = 'block';
+                inputCantidad.disabled = true;
+            } else {
+                listaSeries.innerHTML = '<p style="color: #e74c3c;">⚠️ No hay unidades disponibles en esta bodega.</p>';
+                selectorSeries.style.display = 'block';
+                inputCantidad.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cargar las series. Intenta de nuevo.');
+        });
+}
+
+function toggleSerie(checkbox, numeroSerie) {
+    if (checkbox.checked) {
+        seriesSeleccionadas.push(numeroSerie);
+    } else {
+        seriesSeleccionadas = seriesSeleccionadas.filter(s => s !== numeroSerie);
+    }
+}
+
+function confirmarSeries() {
+    if (seriesSeleccionadas.length === 0) {
+        alert('⚠️ Debes seleccionar al menos una serie.');
+        return;
+    }
+    
+    // Agregar producto con las series seleccionadas
+    const existenteIndex = productosAgregados.findIndex(p => p.producto_id === productoSeleccionado.id);
+    if (existenteIndex !== -1) {
+        if (!confirm('⚠️ Este producto ya está en la lista. ¿Deseas reemplazarlo?')) {
+            return;
+        }
+        productosAgregados.splice(existenteIndex, 1);
+    }
+    
+    productosAgregados.push({
+        producto_id: productoSeleccionado.id,
+        nombre: productoSeleccionado.nombre,
+        codigo: productoSeleccionado.codigo,
+        maneja_serie: true,
+        series: [...seriesSeleccionadas],
+        cantidad: seriesSeleccionadas.length
+    });
+    
+    limpiarFormulario();
+    actualizarTabla();
+}
+
+function cancelarSeries() {
+    limpiarFormulario();
+}
+
+function limpiarFormulario() {
+    inputBuscar.value = '';
+    inputCantidad.value = 1;
+    inputCantidad.disabled = false;
+    productoSeleccionado = null;
+    seriesSeleccionadas = [];
+    selectorSeries.style.display = 'none';
+    inputBuscar.focus();
+}
+
+// ============================================================
+// AGREGAR PRODUCTO SIN SERIE
+// ============================================================
+function agregarProducto() {
+    if (!productoSeleccionado) {
+        alert('⚠️ Debes seleccionar un producto de la lista');
+        return;
+    }
+    
+    // Si maneja serie, mostrar el selector (no agregar directamente)
+    if (productoSeleccionado.maneja_serie) {
+        cargarSeries(productoSeleccionado.id);
+        return;
+    }
+    
+    const cantidad = parseInt(inputCantidad.value) || 0;
+    
+    if (cantidad < 1) {
+        alert('⚠️ La cantidad debe ser al menos 1');
+        return;
+    }
+    
+    const existenteIndex = productosAgregados.findIndex(p => p.producto_id === productoSeleccionado.id);
+    if (existenteIndex !== -1) {
+        if (!confirm('⚠️ Este producto ya está en la lista. ¿Deseas reemplazarlo?')) {
+            return;
+        }
+        productosAgregados.splice(existenteIndex, 1);
+    }
+    
+    productosAgregados.push({
+        producto_id: productoSeleccionado.id,
+        nombre: productoSeleccionado.nombre,
+        codigo: productoSeleccionado.codigo,
+        maneja_serie: false,
+        series: [],
+        cantidad: cantidad
+    });
+    
+    limpiarFormulario();
+    actualizarTabla();
+}
+
+// ============================================================
+// ACTUALIZAR TABLA
+// ============================================================
+function actualizarTabla() {
+    const tbody = document.getElementById('cuerpo-tabla');
+    
+    if (productosAgregados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay productos agregados</td></tr>';
+    } else {
+        tbody.innerHTML = productosAgregados.map((p, index) => {
+            let detalle = '';
+            if (p.maneja_serie) {
+                detalle = `<span style="color: #f39c12;">🔢 ${p.series.length} serie(s): ${p.series.slice(0, 3).join(', ')}${p.series.length > 3 ? '...' : ''}</span>`;
+            } else {
+                detalle = '<span style="color: #7f8c8d;">Sin serie</span>';
+            }
+            
+            return `
+                <tr>
+                    <td>${p.nombre}</td>
+                    <td>${p.codigo}</td>
+                    <td>${detalle}</td>
+                    <td>${p.cantidad}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${index})">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    document.getElementById('productos_json').value = JSON.stringify(productosAgregados);
+}
+
+function eliminarProducto(index) {
+    if (confirm('¿Eliminar este producto de la lista?')) {
+        productosAgregados.splice(index, 1);
+        actualizarTabla();
+    }
+}
+
+// ============================================================
+// VALIDAR ANTES DE ENVIAR
+// ============================================================
+document.getElementById('form-masivo').addEventListener('submit', function(e) {
+    if (productosAgregados.length === 0) {
+        e.preventDefault();
+        alert('⚠️ Debes agregar al menos un producto');
+        return false;
+    }
+    
+    document.getElementById('productos_json').value = JSON.stringify(productosAgregados);
+});
+
+actualizarTabla();
+</script>
+{% endblock %}

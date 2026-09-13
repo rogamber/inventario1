@@ -55,13 +55,13 @@
                 <td><strong>{{ unidad.numero_serie }}</strong></td>
                 <td>{{ unidad.bodega.nombre|default:"Sin asignar" }}</td>
                 <td>
-                    <span class="badge 
-                        {% if unidad.estado == 'disponible' %}badge-success
-                        {% elif unidad.estado == 'vendido' %}badge-info
-                        {% elif unidad.estado == 'dañado' %}badge-danger
-                        {% else %}badge-warning{% endif %}">
-                        {{ unidad.get_estado_display }}
-                    </span>
+                   {% if unidad.estado %}
+                   <span class="badge badge-{{ unidad.estado.color }}">
+                       {{ unidad.estado.nombre }}
+                   </span>
+                   {% else %}
+                       <span class="badge badge-secondary">Sin estado</span>
+                   {% endif %}
                 </td>
                 <td>{{ unidad.notas|default:"-"|truncatechars:40 }}</td>
                 <td>{{ unidad.created_at|date:"d/m/Y H:i" }}</td>

@@ -1,0 +1,37 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Detalle Equipo Instalado{% endblock %}
+
+{% block content %}
+<div class="movement-detail">
+    <div class="header-actions">
+        <h1>✅ Detalle del Equipo Instalado</h1>
+        <a href="{% url 'inventario:lista_equipos_instalados' %}" class="btn btn-secondary">← Volver</a>
+    </div>
+
+    <div class="detail-card">
+        <h3>Información del Producto</h3>
+        <p><strong>Código:</strong> {{ equipo.producto_codigo }}</p>
+        <p><strong>Producto:</strong> {{ equipo.producto_nombre }}</p>
+        <p><strong>Categoría:</strong> {{ equipo.producto_categoria|default:"-" }}</p>
+    </div>
+
+    <div class="detail-card" style="margin-top: 20px;">
+        <h3>Información de la Unidad</h3>
+        <p><strong>N° Serie:</strong> <span class="badge badge-warning">{{ equipo.numero_serie }}</span></p>
+        <p><strong>Estado Final:</strong> <span class="badge badge-info">{{ equipo.estado_final }}</span></p>
+        <p><strong>Notas:</strong> {{ equipo.notas|default:"Sin notas" }}</p>
+    </div>
+
+    <div class="detail-card" style="margin-top: 20px;">
+        <h3>Información de la Salida</h3>
+        <p><strong>Boleta:</strong> {{ equipo.numero_boleta }}</p>
+        <p><strong>Adendum:</strong> {{ equipo.numero_adendum|default:"-" }}</p>
+        <p><strong>Descripción:</strong> {{ equipo.descripcion_salida|default:"-" }}</p>
+        <p><strong>Bodega Origen:</strong> {{ equipo.bodega_origen_nombre }}</p>
+        <p><strong>Ubicación:</strong> {{ equipo.bodega_origen_ubicacion|default:"-" }}</p>
+        <p><strong>Fecha de Salida:</strong> {{ equipo.fecha_salida|date:"d/m/Y H:i" }}</p>
+        <p><strong>Usuario:</strong> {{ equipo.usuario_salida }}</p>
+    </div>
+</div>
+{% endblock %}
