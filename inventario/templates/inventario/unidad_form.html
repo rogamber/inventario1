@@ -19,6 +19,34 @@
             {{ form.numero_serie.errors }}
         </div>
 
+        <!-- Número de Activo -->
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.numero_activo.id_for_label }}">Número de Activo:</label>
+                {{ form.numero_activo }}
+                {{ form.numero_activo.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.modelo.id_for_label }}">Modelo:</label>
+                {{ form.modelo }}
+                {{ form.modelo.errors }}
+            </div>
+        </div>
+
+        <!-- MACs -->
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.mta_mac.id_for_label }}">MTA MAC:</label>
+                {{ form.mta_mac }}
+                {{ form.mta_mac.errors }}
+            </div>
+            <div class="form-group">
+                <label for="{{ form.cm_mac.id_for_label }}">CM MAC:</label>
+                {{ form.cm_mac }}
+                {{ form.cm_mac.errors }}
+            </div>
+        </div>
+
         <div class="form-row">
             <div class="form-group">
                 <label for="{{ form.bodega.id_for_label }}">Bodega:</label>

@@ -8,20 +8,12 @@
         <h1>🔍 Buscar por Número de Serie</h1>
     </div>
 
-    <!-- Formulario de búsqueda -->
     <div class="form-container" style="max-width: 700px; margin: 0 auto;">
         <form method="get" action="{% url 'inventario:buscar_serie' %}">
             <div class="form-row" style="align-items: flex-end;">
                 <div class="form-group" style="flex: 1;">
                     <label for="serie">Número de Serie:</label>
-                    <input type="text" 
-                           name="serie" 
-                           id="serie" 
-                           class="form-control" 
-                           placeholder="Ej: SN-2024-001"
-                           value="{{ serie }}"
-                           autofocus
-                           required>
+                    <input type="text" name="serie" id="serie" class="form-control" placeholder="Ej: SN-2024-001" value="{{ serie }}" autofocus required>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary">🔍 Buscar</button>
@@ -30,36 +22,26 @@
         </form>
     </div>
 
-    <!-- Mensaje de error -->
     {% if error %}
     <div class="alert alert-error" style="max-width: 700px; margin: 20px auto;">
         <strong>❌ {{ error }}</strong>
     </div>
     {% endif %}
 
-    <!-- Resultado de la búsqueda -->
     {% if unidad %}
     <div class="resultado-serie" style="max-width: 900px; margin: 30px auto;">
         
-        <!-- Encabezado del resultado -->
         <div class="alert alert-success" style="text-align: center;">
             <h2 style="margin: 0;">✅ Unidad Encontrada</h2>
-            <p style="margin: 5px 0; font-size: 1.2rem;">
-                <strong>{{ unidad.numero_serie }}</strong>
-            </p>
+            <p style="margin: 5px 0; font-size: 1.2rem;"><strong>{{ unidad.numero_serie }}</strong></p>
         </div>
 
-        <!-- Información del Producto -->
         <div class="detail-card" style="border-left: 4px solid #3498db;">
             <h3>📦 Información del Producto</h3>
             <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
                 <div>
                     <p><strong>Código:</strong> {{ unidad.producto.codigo }}</p>
-                    <p><strong>Producto:</strong> 
-                        <a href="{% url 'inventario:detalle_producto' unidad.producto.pk %}">
-                            {{ unidad.producto.nombre }}
-                        </a>
-                    </p>
+                    <p><strong>Producto:</strong> <a href="{% url 'inventario:detalle_producto' unidad.producto.pk %}">{{ unidad.producto.nombre }}</a></p>
                     <p><strong>Categoría:</strong> {{ unidad.producto.categoria.nombre|default:"Sin categoría" }}</p>
                     <p><strong>Descripción:</strong> {{ unidad.producto.descripcion|default:"Sin descripción" }}</p>
                 </div>
@@ -72,55 +54,55 @@
             </div>
         </div>
 
-        <!-- Ubicación y Estado -->
+        <div class="detail-card" style="margin-top: 20px; border-left: 4px solid #9b59b6;">
+            <h3>🔢 Información de la Unidad</h3>
+            <div class="detail-grid" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                    <p><strong>N° Serie:</strong> <span class="badge badge-warning">{{ unidad.numero_serie }}</span></p>
+                    <p><strong>N° Activo:</strong> {{ unidad.numero_activo|default:"-" }}</p>
+                    <p><strong>Modelo:</strong> {{ unidad.modelo|default:"-" }}</p>
+                </div>
+                <div>
+                    <p><strong>MTA MAC:</strong> <code>{{ unidad.mta_mac|default:"-" }}</code></p>
+                    <p><strong>CM MAC:</strong> <code>{{ unidad.cm_mac|default:"-" }}</code></p>
+                    <p><strong>Condición:</strong> 
+                        <span class="badge {% if unidad.condicion == 'nuevo' %}badge-success{% elif unidad.condicion == 'usado' %}badge-warning{% else %}badge-info{% endif %}">
+                            {{ unidad.get_condicion_display }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <div class="detail-grid" style="margin-top: 20px;">
             <div class="detail-card" style="border-left: 4px solid #27ae60;">
                 <h3>📍 Ubicación Actual</h3>
                 {% if unidad.bodega %}
-                    <p style="font-size: 1.3rem; text-align: center; padding: 15px; background: #d4edda; border-radius: 8px;">
-                        <strong>🏪 {{ unidad.bodega.nombre }}</strong>
-                    </p>
+                    <p style="font-size: 1.3rem; text-align: center; padding: 15px; background: #d4edda; border-radius: 8px;"><strong>🏪 {{ unidad.bodega.nombre }}</strong></p>
                     <p><strong>Ubicación:</strong> {{ unidad.bodega.ubicacion|default:"No especificada" }}</p>
                     <p><strong>Descripción:</strong> {{ unidad.bodega.descripcion|default:"Sin descripción" }}</p>
                     <p><strong>Estado de la bodega:</strong>
-                        {% if unidad.bodega.activa %}
-                            <span class="badge badge-success">Activa</span>
-                        {% else %}
-                            <span class="badge badge-danger">Inactiva</span>
-                        {% endif %}
+                        {% if unidad.bodega.activa %}<span class="badge badge-success">Activa</span>{% else %}<span class="badge badge-danger">Inactiva</span>{% endif %}
                     </p>
                 {% else %}
-                    <p style="text-align: center; padding: 20px; color: #e74c3c;">
-                        <strong>⚠️ Sin asignar a ninguna bodega</strong>
-                    </p>
+                    <p style="text-align: center; padding: 20px; color: #e74c3c;"><strong>⚠️ Sin asignar a ninguna bodega</strong></p>
                 {% endif %}
             </div>
 
             <div class="detail-card" style="border-left: 4px solid #f39c12;">
                 <h3>🔖 Estado de la Unidad</h3>
                 {% if unidad.estado %}
-                    <p style="text-align: center; padding: 15px;">
-                        <span class="badge badge-{{ unidad.estado.color }}" style="font-size: 1.2rem; padding: 10px 20px;">
-                            {{ unidad.estado.nombre }}
-                        </span>
-                    </p>
+                    <p style="text-align: center; padding: 15px;"><span class="badge badge-{{ unidad.estado.color }}" style="font-size: 1.2rem; padding: 10px 20px;">{{ unidad.estado.nombre }}</span></p>
                     <p><strong>Descripción:</strong> {{ unidad.estado.descripcion|default:"Sin descripción" }}</p>
                     <p><strong>Estado final:</strong>
-                        {% if unidad.estado.es_estado_final %}
-                            <span class="badge badge-danger">Sí</span>
-                        {% else %}
-                            <span class="badge badge-success">No</span>
-                        {% endif %}
+                        {% if unidad.estado.es_estado_final %}<span class="badge badge-danger">Sí</span>{% else %}<span class="badge badge-success">No</span>{% endif %}
                     </p>
                 {% else %}
-                    <p style="text-align: center; padding: 20px; color: #7f8c8d;">
-                        <strong>Sin estado asignado</strong>
-                    </p>
+                    <p style="text-align: center; padding: 20px; color: #7f8c8d;"><strong>Sin estado asignado</strong></p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Información Adicional -->
         <div class="detail-card" style="margin-top: 20px;">
             <h3>📋 Información Adicional</h3>
             <p><strong>Notas:</strong> {{ unidad.notas|default:"Sin notas" }}</p>
@@ -128,7 +110,6 @@
             <p><strong>Última actualización:</strong> {{ unidad.updated_at|date:"d/m/Y H:i" }}</p>
         </div>
 
-        <!-- Historial de Movimientos -->
         {% if movimientos %}
         <div class="movements" style="margin-top: 20px;">
             <h3>📊 Historial de Movimientos (últimos 10)</h3>
@@ -146,16 +127,9 @@
                 <tbody>
                     {% for mov in movimientos %}
                     <tr>
+                        <td><a href="{% url 'inventario:detalle_movimiento' mov.pk %}">{{ mov.numero_boleta }}</a></td>
                         <td>
-                            <a href="{% url 'inventario:detalle_movimiento' mov.pk %}">
-                                {{ mov.numero_boleta }}
-                            </a>
-                        </td>
-                        <td>
-                            <span class="badge 
-                                {% if mov.tipo == 'ENT' %}badge-success
-                                {% elif mov.tipo == 'SAL' %}badge-danger
-                                {% else %}badge-info{% endif %}">
+                            <span class="badge {% if mov.tipo == 'ENT' %}badge-success{% elif mov.tipo == 'SAL' %}badge-danger{% else %}badge-info{% endif %}">
                                 {{ mov.get_tipo_display }}
                             </span>
                         </td>
@@ -170,17 +144,44 @@
         </div>
         {% endif %}
 
-        <!-- Acciones -->
+        {% if devoluciones %}
+        <div class="movements" style="margin-top: 20px;">
+            <h3>🔄 Historial de Devoluciones (últimas 10)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Boleta Devolución</th>
+                        <th>Contrato</th>
+                        <th>Cliente</th>
+                        <th>Bodega Recepción</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dev in devoluciones %}
+                    <tr>
+                        <td><strong>{{ dev.numero_boleta_devolucion }}</strong></td>
+                        <td>{{ dev.numero_contrato }}</td>
+                        <td>{{ dev.cliente_nombre }}</td>
+                        <td>{{ dev.bodega_recepcion_nombre }}</td>
+                        <td>
+                            <span class="badge {% if dev.estado_devolucion == 'recibido' %}badge-info{% elif dev.estado_devolucion == 'revisado' %}badge-success{% elif dev.estado_devolucion == 'reparacion' %}badge-warning{% else %}badge-danger{% endif %}">
+                                {{ dev.get_estado_devolucion_display }}
+                            </span>
+                        </td>
+                        <td>{{ dev.fecha_devolucion|date:"d/m/Y H:i" }}</td>
+                        <td><a href="{% url 'inventario:detalle_equipo_devuelto' dev.pk %}" class="btn btn-sm btn-info">Ver</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
         <div class="form-actions" style="justify-content: center; margin-top: 30px;">
-            <!-- <a href="{% url 'inventario:editar_unidad' unidad.pk %}" class="btn btn-warning">
-                ✏️ Editar Unidad
-            </a>
-            <a href="{% url 'inventario:detalle_producto' unidad.producto.pk %}" class="btn btn-info">
-                📦 Ver Producto
-            </a>-->
-            <a href="{% url 'inventario:buscar_serie' %}" class="btn btn-secondary">
-                🔍 Nueva Búsqueda
-            </a>
+            <a href="{% url 'inventario:buscar_serie' %}" class="btn btn-secondary">🔍 Nueva Búsqueda</a>
         </div>
     </div>
     {% endif %}

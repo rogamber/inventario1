@@ -40,6 +40,13 @@
 
         <div class="form-row">
             <div class="form-group">
+            <label for="{{ form.modelo.id_for_label }}">{{ form.modelo.label }}:</label>
+             {{ form.modelo }}
+             {{ form.modelo.errors }}
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
                 <label for="{{ form.bodega.id_for_label }}">Bodega:</label>
                 {{ form.bodega }}
                 {{ form.bodega.errors }}

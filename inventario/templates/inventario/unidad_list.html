@@ -42,6 +42,10 @@
         <thead>
             <tr>
                 <th>N° Serie</th>
+                <th>N° Activo</th>
+                <th>Modelo</th>
+                <th>MTA MAC</th>
+                <th>CM MAC</th>
                 <th>Bodega</th>
                 <th>Estado</th>
                 <th>Condición</th>  <!-- ← NUEVO -->
@@ -54,6 +58,10 @@
             {% for unidad in unidades %}
             <tr>
                 <td><strong>{{ unidad.numero_serie }}</strong></td>
+                <td>{{ unidad.numero_activo|default:"-" }}</td>
+                <td>{{ unidad.modelo|default:"-" }}</td>
+                <td><code>{{ unidad.mta_mac|default:"-" }}</code></td>
+                <td><code>{{ unidad.cm_mac|default:"-" }}</code></td>
                 <td>{{ unidad.bodega.nombre|default:"Sin asignar" }}</td>
                 <td>
                    {% if unidad.estado %}
