@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required , permission_required
 from django.contrib.auth.views import LoginView
 from django.contrib import messages
 from django.db import models
@@ -36,6 +36,7 @@ class CustomLoginView(LoginView):
 # PÁGINA DE INICIO (INDEX)
 # ============================================================
 
+@login_required
 def index(request):
     """Página de inicio del sistema"""
     # Estadísticas
@@ -86,6 +87,7 @@ def lista_productos(request):
     return render(request, 'inventario/producto_list.html', context)
 
 @login_required
+@permission_required('inventario.view_producto', raise_exception=True)
 def detalle_producto(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     movimientos = Movimiento.objects.filter(producto=producto)[:10]
@@ -103,7 +105,9 @@ def detalle_producto(request, pk):
     return render(request, 'inventario/producto_detail.html', context)
 
 @login_required
+@permission_required('inventario.add_producto', raise_exception=True)
 def crear_producto(request):
+    """Solo quien tenga permiso puede crear productos"""
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
@@ -142,6 +146,7 @@ def crear_producto(request):
     return render(request, 'inventario/producto_form.html', context)
 
 @login_required
+@permission_required('inventario.change_producto', raise_exception=True)
 def editar_producto(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     
@@ -162,6 +167,7 @@ def editar_producto(request, pk):
     return render(request, 'inventario/producto_form.html', context)
 
 @login_required
+@permission_required('inventario.delete_producto', raise_exception=True)
 def eliminar_producto(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
     
@@ -185,6 +191,7 @@ def lista_bodegas(request):
     return render(request, 'inventario/bodega_list.html', context)
 
 @login_required
+@permission_required('inventario.add_bodega', raise_exception=True)
 def crear_bodega(request):
     if request.method == 'POST':
         nombre = request.POST.get('nombre')
@@ -203,6 +210,7 @@ def crear_bodega(request):
     return render(request, 'inventario/bodega_form.html')
 
 @login_required
+@permission_required('inventario.change_bodega', raise_exception=True)
 def editar_bodega(request, pk):
     bodega = get_object_or_404(Bodega, pk=pk)
     
@@ -229,12 +237,14 @@ def lista_movimientos(request):
     return render(request, 'inventario/movimiento_list.html', context)
 
 @login_required
+@permission_required('inventario.view_movimiento', raise_exception=True)
 def detalle_movimiento(request, pk):
     movimiento = get_object_or_404(Movimiento, pk=pk)
     context = {'movimiento': movimiento}
     return render(request, 'inventario/movimiento_detail.html', context)
 
 @login_required
+@permission_required('inventario.add_movimiento', raise_exception=True)
 def entrada_producto(request):
     if request.method == 'POST':
         form = EntradaForm(request.POST)
@@ -263,6 +273,7 @@ def entrada_producto(request):
 # inventario/views.py
 
 @login_required
+@permission_required('inventario.add_movimiento', raise_exception=True)
 def salida_producto(request):
     if request.method == 'POST':
         form = SalidaForm(request.POST)
@@ -292,6 +303,7 @@ def salida_producto(request):
     return render(request, 'inventario/movimiento_form.html', context)
 
 @login_required
+@permission_required('inventario.add_movimiento', raise_exception=True)
 def traslado_producto(request):
     if request.method == 'POST':
         form = TrasladoForm(request.POST)
@@ -370,6 +382,7 @@ def resumen_inventario(request):
 # ============================================================
 
 @login_required
+@permission_required('inventario.add_movimientomasivo', raise_exception=True)
 def entrada_masiva(request):
     """Vista para registrar entrada masiva de productos"""
     if request.method == 'POST':
@@ -495,6 +508,7 @@ def entrada_masiva(request):
 
 
 @login_required
+@permission_required('inventario.add_movimientomasivo', raise_exception=True)
 def salida_masiva(request):
     """Vista para registrar salida masiva de productos (equipos definitivos)"""
     if request.method == 'POST':
@@ -740,6 +754,7 @@ def salida_masiva(request):
     return render(request, 'inventario/salida_masiva_form.html', context)
 
 @login_required
+@permission_required('inventario.view_movimientomasivo', raise_exception=True)
 def detalle_movimiento_masivo(request, pk):
     """Muestra el detalle de un movimiento masivo"""
     movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
@@ -755,6 +770,7 @@ def detalle_movimiento_masivo(request, pk):
 
 
 @login_required
+@permission_required('inventario.view_movimientomasivo', raise_exception=True)
 def lista_movimientos_masivos(request):
     """Lista todos los movimientos masivos"""
     movimientos_masivos = MovimientoMasivo.objects.all()
@@ -765,6 +781,7 @@ def lista_movimientos_masivos(request):
     return render(request, 'inventario/movimiento_masivo_list.html', context)
 
 @login_required
+@permission_required('inventario.add_movimientomasivo', raise_exception=True)
 def traslado_masivo(request):
     """Vista para registrar traslado masivo de productos entre bodegas"""
     if request.method == 'POST':
@@ -969,6 +986,7 @@ def traslado_masivo(request):
     return render(request, 'inventario/movimiento_masivo_form.html', context)
 
 @login_required
+@permission_required('inventario.view_movimientomasivo', raise_exception=True)
 def generar_pdf_transferencia(request, pk):
     """Genera un PDF de la transferencia con 15 items por página"""
     movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
@@ -1026,8 +1044,9 @@ def generar_pdf_transferencia(request, pk):
 
 
 @login_required
+@permission_required('inventario.view_inventario', raise_exception=True)
 def exportar_bodega_excel(request, bodega_id):
-    """Exporta el inventario de una bodega a un archivo Excel"""
+    """Exporta el inventario de una bodega a un archivo Excel con dos hojas"""
     bodega = get_object_or_404(Bodega, pk=bodega_id)
     inventarios = Inventario.objects.filter(bodega=bodega).select_related(
         'producto', 'producto__categoria'
@@ -1036,37 +1055,32 @@ def exportar_bodega_excel(request, bodega_id):
     # Crear el libro de Excel
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Bodega {bodega.nombre[:20]}"  # Excel limita a 31 caracteres
+    ws.title = f"Bodega {bodega.nombre[:20]}"
     
     # ============================================================
     # ESTILOS
     # ============================================================
     
-    # Colores
     color_encabezado = "2C3E50"
     color_subtitulo = "3498DB"
     color_alerta = "E74C3C"
     color_normal = "F8F9FA"
     
-    # Fuentes
     fuente_titulo = Font(name='Calibri', size=16, bold=True, color="2C3E50")
     fuente_subtitulo = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
     fuente_encabezado = Font(name='Calibri', size=11, bold=True, color="FFFFFF")
     fuente_normal = Font(name='Calibri', size=10)
     fuente_alerta = Font(name='Calibri', size=10, bold=True, color="E74C3C")
     
-    # Rellenos
     relleno_encabezado = PatternFill(start_color=color_encabezado, end_color=color_encabezado, fill_type="solid")
     relleno_subtitulo = PatternFill(start_color=color_subtitulo, end_color=color_subtitulo, fill_type="solid")
     relleno_alerta = PatternFill(start_color="FADBD8", end_color="FADBD8", fill_type="solid")
     relleno_alterno = PatternFill(start_color=color_normal, end_color=color_normal, fill_type="solid")
     
-    # Alineaciones
     alineacion_centro = Alignment(horizontal="center", vertical="center")
     alineacion_izquierda = Alignment(horizontal="left", vertical="center")
     alineacion_derecha = Alignment(horizontal="right", vertical="center")
     
-    # Bordes
     borde_fino = Border(
         left=Side(style='thin', color='CCCCCC'),
         right=Side(style='thin', color='CCCCCC'),
@@ -1075,46 +1089,37 @@ def exportar_bodega_excel(request, bodega_id):
     )
     
     # ============================================================
-    # ENCABEZADO DEL REPORTE
+    # HOJA 1: RESUMEN POR PRODUCTO
     # ============================================================
     
-    # Título principal
-    ws.merge_cells('A1:G1')
+    ws.merge_cells('A1:H1')
     celda_titulo = ws['A1']
     celda_titulo.value = f"📦 INVENTARIO DE BODEGA: {bodega.nombre.upper()}"
     celda_titulo.font = fuente_titulo
     celda_titulo.alignment = alineacion_centro
     ws.row_dimensions[1].height = 30
     
-    # Información de la bodega
-    ws.merge_cells('A2:G2')
+    ws.merge_cells('A2:H2')
     celda_info = ws['A2']
     celda_info.value = f"Ubicación: {bodega.ubicacion or 'No especificada'}"
     celda_info.font = Font(name='Calibri', size=10, italic=True, color="7F8C8D")
     celda_info.alignment = alineacion_centro
     ws.row_dimensions[2].height = 20
     
-    # Fecha de generación
-    ws.merge_cells('A3:G3')
+    ws.merge_cells('A3:H3')
     celda_fecha = ws['A3']
     celda_fecha.value = f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     celda_fecha.font = Font(name='Calibri', size=9, color="7F8C8D")
     celda_fecha.alignment = alineacion_centro
     ws.row_dimensions[3].height = 18
     
-    # Fila vacía
     ws.row_dimensions[4].height = 10
-    
-    # ============================================================
-    # ENCABEZADOS DE LA TABLA (Fila 5)
-    # ============================================================
     
     encabezados = [
         'N°', 'Código', 'Producto', 'Categoría', 'N° Serie', 
         'Cantidad', 'Stock Mínimo', 'Estado'
     ]
     
-    # Ajustar a 8 columnas (A-H)
     for col_num, encabezado in enumerate(encabezados, 1):
         celda = ws.cell(row=5, column=col_num, value=encabezado)
         celda.font = fuente_encabezado
@@ -1124,10 +1129,6 @@ def exportar_bodega_excel(request, bodega_id):
     
     ws.row_dimensions[5].height = 25
     
-    # ============================================================
-    # DATOS (Desde la fila 6)
-    # ============================================================
-    
     fila_actual = 6
     total_items = 0
     productos_bajo_stock = 0
@@ -1135,20 +1136,34 @@ def exportar_bodega_excel(request, bodega_id):
     for index, inv in enumerate(inventarios, 1):
         producto = inv.producto
         
-        # Verificar si está bajo stock
         es_bajo_stock = inv.cantidad <= inv.stock_minimo
         if es_bajo_stock:
             productos_bajo_stock += 1
         
         total_items += inv.cantidad
         
-        # Datos
+        # Obtener las series de este producto en esta bodega
+        series_en_bodega = Unidad.objects.filter(
+            producto=producto,
+            bodega=bodega
+        ).exclude(
+            estado__nombre='Instalado'
+        ).values_list('numero_serie', flat=True)
+        
+        series_lista = list(series_en_bodega)
+        if series_lista:
+            series_texto = ', '.join(series_lista[:5])
+            if len(series_lista) > 5:
+                series_texto += f' (+{len(series_lista) - 5} más)'
+        else:
+            series_texto = '-'
+        
         datos = [
             index,
             producto.codigo,
             producto.nombre,
             producto.categoria.nombre if producto.categoria else '-',
-            producto.numero_serie or '-',
+            series_texto,
             inv.cantidad,
             inv.stock_minimo,
             '⚠️ BAJO' if es_bajo_stock else '✅ OK'
@@ -1159,15 +1174,11 @@ def exportar_bodega_excel(request, bodega_id):
             celda.font = fuente_alerta if es_bajo_stock else fuente_normal
             celda.border = borde_fino
             
-            # Alineación según el tipo
             if col_num in [1, 6, 7, 8]:
                 celda.alignment = alineacion_centro
-            elif col_num == 4:
-                celda.alignment = alineacion_izquierda
             else:
                 celda.alignment = alineacion_izquierda
             
-            # Fondo alternado o de alerta
             if es_bajo_stock:
                 celda.fill = relleno_alerta
             elif index % 2 == 0:
@@ -1175,13 +1186,9 @@ def exportar_bodega_excel(request, bodega_id):
         
         fila_actual += 1
     
-    # ============================================================
-    # FILA DE TOTALES
-    # ============================================================
-    
+    # Fila de totales
     fila_actual += 1
     
-    # Total de productos
     ws.merge_cells(f'A{fila_actual}:D{fila_actual}')
     celda_total_label = ws[f'A{fila_actual}']
     celda_total_label.value = "TOTAL DE PRODUCTOS:"
@@ -1220,82 +1227,144 @@ def exportar_bodega_excel(request, bodega_id):
     
     ws.row_dimensions[fila_actual].height = 25
     
-    # ============================================================
-    # AJUSTAR ANCHO DE COLUMNAS
-    # ============================================================
-    
+    # Ajustar ancho de columnas de la hoja 1
     anchos = {
-        'A': 6,   # N°
-        'B': 15,  # Código
-        'C': 35,  # Producto
-        'D': 20,  # Categoría
-        'E': 20,  # N° Serie
-        'F': 12,  # Cantidad
-        'G': 12,  # Stock Mínimo
-        'H': 15,  # Estado
+        'A': 6, 'B': 15, 'C': 35, 'D': 20, 'E': 30,
+        'F': 12, 'G': 12, 'H': 15,
     }
     
     for col, ancho in anchos.items():
         ws.column_dimensions[col].width = ancho
     
-    # Congelar la fila de encabezados
     ws.freeze_panes = 'A6'
+    
+    # ============================================================
+    # HOJA 2: DETALLE DE UNIDADES
+    # ============================================================
+    
+    ws2 = wb.create_sheet(title="Detalle Unidades")
+    
+    unidades = Unidad.objects.filter(
+        bodega=bodega
+    ).exclude(
+        estado__nombre='Instalado'
+    ).select_related(
+        'producto', 'producto__categoria', 'estado'
+    ).order_by('producto__nombre', 'numero_serie')
+    
+    # Encabezado de la hoja 2
+    ws2.merge_cells('A1:K1')
+    celda_titulo2 = ws2['A1']
+    celda_titulo2.value = f"🔢 DETALLE DE UNIDADES - {bodega.nombre.upper()}"
+    celda_titulo2.font = fuente_titulo
+    celda_titulo2.alignment = alineacion_centro
+    ws2.row_dimensions[1].height = 30
+    
+    ws2.merge_cells('A2:K2')
+    celda_info2 = ws2['A2']
+    celda_info2.value = f"Ubicación: {bodega.ubicacion or 'No especificada'} | Total unidades: {unidades.count()}"
+    celda_info2.font = Font(name='Calibri', size=10, italic=True, color="7F8C8D")
+    celda_info2.alignment = alineacion_centro
+    ws2.row_dimensions[2].height = 20
+    
+    ws2.merge_cells('A3:K3')
+    celda_fecha2 = ws2['A3']
+    celda_fecha2.value = f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    celda_fecha2.font = Font(name='Calibri', size=9, color="7F8C8D")
+    celda_fecha2.alignment = alineacion_centro
+    ws2.row_dimensions[3].height = 18
+    
+    ws2.row_dimensions[4].height = 10
+    
+    # Encabezados de la tabla de unidades
+    encabezados2 = [
+        'N°', 'Código', 'Producto', 'Categoría',
+        'N° Serie', 'N° Activo', 'Modelo', 'MTA MAC', 'CM MAC',
+        'Estado', 'Condición'
+    ]
+    
+    for col_num, encabezado in enumerate(encabezados2, 1):
+        celda = ws2.cell(row=5, column=col_num, value=encabezado)
+        celda.font = fuente_encabezado
+        celda.fill = relleno_encabezado
+        celda.alignment = alineacion_centro
+        celda.border = borde_fino
+    
+    ws2.row_dimensions[5].height = 25
+    
+    # Datos de las unidades
+    fila_unidad = 6
+    
+    for index, unidad in enumerate(unidades, 1):
+        datos_unidad = [
+            index,
+            unidad.producto.codigo,
+            unidad.producto.nombre,
+            unidad.producto.categoria.nombre if unidad.producto.categoria else '-',
+            unidad.numero_serie,
+            unidad.numero_activo or '-',
+            unidad.modelo or '-',
+            unidad.mta_mac or '-',
+            unidad.cm_mac or '-',
+            unidad.estado.nombre if unidad.estado else '-',
+            unidad.get_condicion_display() if unidad.condicion else '-',
+        ]
+        
+        for col_num, valor in enumerate(datos_unidad, 1):
+            celda = ws2.cell(row=fila_unidad, column=col_num, value=valor)
+            celda.font = fuente_normal
+            celda.border = borde_fino
+            
+            # Alineación
+            if col_num in [1, 10, 11]:
+                celda.alignment = alineacion_centro
+            else:
+                celda.alignment = alineacion_izquierda
+            
+            # Fondo alterno
+            if index % 2 == 0:
+                celda.fill = relleno_alterno
+        
+        fila_unidad += 1
+    
+    # Ajustar anchos de la segunda hoja
+    anchos2 = {
+        'A': 6,   # N°
+        'B': 15,  # Código
+        'C': 30,  # Producto
+        'D': 18,  # Categoría
+        'E': 18,  # N° Serie
+        'F': 18,  # N° Activo
+        'G': 20,  # Modelo
+        'H': 20,  # MTA MAC
+        'I': 20,  # CM MAC
+        'J': 15,  # Estado
+        'K': 12,  # Condición
+    }
+    
+    for col, ancho in anchos2.items():
+        ws2.column_dimensions[col].width = ancho
+    
+    ws2.freeze_panes = 'A6'
     
     # ============================================================
     # CREAR LA RESPUESTA HTTP
     # ============================================================
     
-    # Nombre del archivo
     nombre_archivo = f"inventario_{bodega.nombre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
     
-    # Configurar respuesta
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
     
-    # Guardar el libro en la respuesta
     wb.save(response)
     
     return response
 
-# ============================================================
-# GESTIÓN DE UNIDADES (productos con número de serie)
-# ============================================================
 
 @login_required
-def lista_unidades(request, producto_id):
-    """Lista todas las unidades de un producto"""
-    producto = get_object_or_404(Producto, pk=producto_id)
-    unidades = Unidad.objects.filter(
-    producto=producto
-    ).exclude(
-    estado__nombre='Instalado'
-    ).select_related('bodega', 'estado')
-
-    
-    # Estadísticas
-    total = unidades.count()
-    
-    # Contar por estado (dinámico)
-    disponibles = unidades.filter(estado__nombre='Disponible').count()
-    reservados = unidades.filter(estado__nombre='Reservado').count()
-    vendidos = unidades.filter(estado__nombre='Vendido').count()
-    dañados = unidades.filter(estado__nombre='Dañado').count()
-    
-    context = {
-        'producto': producto,
-        'unidades': unidades,
-        'total': total,
-        'disponibles': disponibles,
-        'vendidos': vendidos,
-        'dañados': dañados,
-        'reservados': reservados,
-    }
-    return render(request, 'inventario/unidad_list.html', context)
-
-
-@login_required
+@permission_required('inventario.add_unidad', raise_exception=True)
 def crear_unidad(request, producto_id):
     """Crea una unidad individual para un producto"""
     producto = get_object_or_404(Producto, pk=producto_id)
@@ -1333,8 +1402,43 @@ def crear_unidad(request, producto_id):
     }
     return render(request, 'inventario/unidad_form.html', context)
 
+    return response
+
+
+# ============================================================
+# GESTIÓN DE UNIDADES (productos con número de serie)
+# ============================================================
 
 @login_required
+def lista_unidades(request, producto_id):
+    """Lista todas las unidades de un producto (excluye las instaladas)"""
+    producto = get_object_or_404(Producto, pk=producto_id)
+    unidades = Unidad.objects.filter(
+        producto=producto
+    ).exclude(
+        estado__nombre='Instalado'
+    ).select_related('bodega', 'estado')
+    
+    total = unidades.count()
+    disponibles = unidades.filter(estado__nombre='Disponible').count()
+    reservados = unidades.filter(estado__nombre='Reservado').count()
+    vendidos = unidades.filter(estado__nombre='Vendido').count()
+    dañados = unidades.filter(estado__nombre='Dañado').count()
+    
+    context = {
+        'producto': producto,
+        'unidades': unidades,
+        'total': total,
+        'disponibles': disponibles,
+        'vendidos': vendidos,
+        'dañados': dañados,
+        'reservados': reservados,
+    }
+    return render(request, 'inventario/unidad_list.html', context)
+
+
+@login_required
+@permission_required('inventario.add_unidad', raise_exception=True)
 def crear_unidades_masivas(request, producto_id):
     """Crea varias unidades a la vez"""
     producto = get_object_or_404(Producto, pk=producto_id)
@@ -1349,6 +1453,7 @@ def crear_unidades_masivas(request, producto_id):
             cantidad = form.cleaned_data['cantidad']
             prefijo = form.cleaned_data.get('prefijo', '')
             numero_inicial = form.cleaned_data['numero_inicial']
+            modelo = form.cleaned_data.get('modelo', '')
             bodega = form.cleaned_data['bodega']
             estado = form.cleaned_data['estado']
             condicion = form.cleaned_data.get('condicion', Unidad.CONDICION_NUEVO)
@@ -1360,7 +1465,6 @@ def crear_unidades_masivas(request, producto_id):
                 numero = numero_inicial + i
                 numero_serie = f"{prefijo}{numero:04d}"
                 
-                # Verificar que no exista
                 if Unidad.objects.filter(numero_serie=numero_serie).exists():
                     errores.append(f"'{numero_serie}' ya existe")
                     continue
@@ -1369,15 +1473,15 @@ def crear_unidades_masivas(request, producto_id):
                     Unidad.objects.create(
                         producto=producto,
                         numero_serie=numero_serie,
+                        modelo=modelo,
                         bodega=bodega,
                         estado=estado,
-                        condicion=condicion  # ← NUEVO
+                        condicion=condicion
                     )
                     creadas += 1
                 except Exception as e:
                     errores.append(f"Error con '{numero_serie}': {str(e)}")
             
-            # Actualizar inventario
             if creadas > 0 and bodega:
                 inventario, created = Inventario.objects.get_or_create(
                     producto=producto,
@@ -1407,6 +1511,7 @@ def crear_unidades_masivas(request, producto_id):
 
 
 @login_required
+@permission_required('inventario.change_unidad', raise_exception=True)
 def editar_unidad(request, pk):
     """Edita una unidad existente"""
     unidad = get_object_or_404(Unidad, pk=pk)
@@ -1415,6 +1520,7 @@ def editar_unidad(request, pk):
     
     if request.method == 'POST':
         form = UnidadForm(request.POST, instance=unidad)
+        form.fields['numero_serie'].disabled = True  # ← AQUÍ (línea nueva)
         if form.is_valid():
             unidad = form.save()
             
@@ -1446,6 +1552,7 @@ def editar_unidad(request, pk):
             return redirect('inventario:lista_unidades', producto_id=producto.pk)
     else:
         form = UnidadForm(instance=unidad)
+        form.fields['numero_serie'].disabled = True  # ← AQUÍ (línea nueva)
     
     context = {
         'form': form,
@@ -1457,6 +1564,7 @@ def editar_unidad(request, pk):
 
 
 @login_required
+@permission_required('inventario.delete_unidad', raise_exception=True)
 def eliminar_unidad(request, pk):
     """Elimina una unidad"""
     unidad = get_object_or_404(Unidad, pk=pk)
@@ -1524,6 +1632,7 @@ def buscar_serie(request):
     serie = request.GET.get('serie', '').strip()
     unidad = None
     movimientos = []
+    devoluciones = []
     error = None
     
     if serie:
@@ -1539,8 +1648,19 @@ def buscar_serie(request):
                 'bodega_origen', 'bodega_destino', 'usuario', 'movimiento_masivo'
             ).order_by('-created_at')[:10]
             
+            # Obtener las devoluciones de esta unidad
+            devoluciones = EquipoDevuelto.objects.filter(
+                numero_serie=unidad.numero_serie
+            ).order_by('-fecha_devolucion')[:10]
+            
         except Unidad.DoesNotExist:
-            error = f'No se encontró ninguna unidad con el número de serie "{serie}"'
+            # Si no existe en Unidad, buscar en EquipoDevuelto
+            devoluciones = EquipoDevuelto.objects.filter(
+                numero_serie__iexact=serie
+            ).order_by('-fecha_devolucion')
+            
+            if not devoluciones:
+                error = f'No se encontró ninguna unidad con el número de serie "{serie}"'
         except Unidad.MultipleObjectsReturned:
             error = f'Se encontraron múltiples unidades con el número de serie "{serie}"'
     
@@ -1548,6 +1668,7 @@ def buscar_serie(request):
         'serie': serie,
         'unidad': unidad,
         'movimientos': movimientos,
+        'devoluciones': devoluciones,
         'error': error,
     }
     return render(request, 'inventario/buscar_serie.html', context)
@@ -1557,6 +1678,7 @@ def buscar_serie(request):
 # ============================================================
 
 @login_required
+@permission_required('inventario.view_movimientomasivo', raise_exception=True)
 def detalle_salida_masiva(request, pk):
     """Muestra el detalle de una salida masiva"""
     movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
@@ -1583,6 +1705,7 @@ def detalle_salida_masiva(request, pk):
 # ============================================================
 
 @login_required
+@permission_required('inventario.view_movimientomasivo', raise_exception=True)
 def generar_pdf_salida(request, pk):
     """Genera un PDF de la salida masiva con 25 items por página"""
     movimiento_masivo = get_object_or_404(MovimientoMasivo, pk=pk)
@@ -1698,6 +1821,7 @@ def lista_clientes(request):
 
 
 @login_required
+@permission_required('inventario.add_cliente', raise_exception=True)
 def crear_cliente(request):
     """Crea un nuevo cliente"""
     if request.method == 'POST':
@@ -1714,6 +1838,7 @@ def crear_cliente(request):
 
 
 @login_required
+@permission_required('inventario.change_cliente', raise_exception=True)
 def editar_cliente(request, pk):
     """Edita un cliente existente"""
     cliente = get_object_or_404(Cliente, pk=pk)
@@ -1750,6 +1875,7 @@ def detalle_cliente(request, pk):
 
 
 @login_required
+@permission_required('inventario.delete_cliente', raise_exception=True)
 def eliminar_cliente(request, pk):
     """Elimina un cliente"""
     cliente = get_object_or_404(Cliente, pk=pk)
@@ -1879,6 +2005,7 @@ def lista_contratos(request):
 
 
 @login_required
+@permission_required('inventario.add_contrato', raise_exception=True)
 def crear_contrato(request):
     """Crea un nuevo contrato"""
     if request.method == 'POST':
@@ -1895,6 +2022,7 @@ def crear_contrato(request):
 
 
 @login_required
+@permission_required('inventario.change_contrato', raise_exception=True)
 def editar_contrato(request, pk):
     """Edita un contrato existente"""
     contrato = get_object_or_404(Contrato, pk=pk)
@@ -1931,6 +2059,7 @@ def detalle_contrato(request, pk):
 
 
 @login_required
+@permission_required('inventario.delete_contrato', raise_exception=True)
 def eliminar_contrato(request, pk):
     """Elimina un contrato"""
     contrato = get_object_or_404(Contrato, pk=pk)
@@ -1946,6 +2075,7 @@ def eliminar_contrato(request, pk):
 
 
 @login_required
+@permission_required('inventario.change_contrato', raise_exception=True)
 def cambiar_estado_contrato(request, pk):
     """Cambia el estado de un contrato (activo/suspendido)"""
     contrato = get_object_or_404(Contrato, pk=pk)
@@ -1964,6 +2094,7 @@ def cambiar_estado_contrato(request, pk):
 # ============================================================
 
 @login_required
+@permission_required('inventario.add_equipodevuelto', raise_exception=True)
 def seleccionar_contrato_devolucion(request):
     """Paso 1: Seleccionar el contrato para devolver equipos"""
     contratos = Contrato.objects.filter(
@@ -1988,6 +2119,7 @@ def seleccionar_contrato_devolucion(request):
 
 
 @login_required
+@permission_required('inventario.add_equipodevuelto', raise_exception=True)
 def registrar_devolucion(request, contrato_id):
     """Paso 2: Registrar la devolución de equipos del contrato"""
     contrato = get_object_or_404(Contrato, pk=contrato_id)

@@ -211,16 +211,35 @@ class TrasladoMasivoForm(forms.Form):
 class UnidadForm(forms.ModelForm):
     class Meta:
         model = Unidad
-        fields = ['numero_serie', 'bodega', 'estado', 'notas' , 'condicion']
+        fields = [
+            'numero_serie', 'numero_activo', 'mta_mac', 'cm_mac', 'modelo',
+            'bodega', 'estado', 'condicion', 'notas'
+        ]
         widgets = {
             'numero_serie': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ej: SN-2024-001'
             }),
+            'numero_activo': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: ACT-001'
+            }),
+            'mta_mac': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: AA:BB:CC:DD:EE:FF'
+            }),
+            'cm_mac': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: AA:BB:CC:DD:EE:FF'
+            }),
+            'modelo': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: MTA M3000'
+            }),
             'notas': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'bodega': forms.Select(attrs={'class': 'form-control'}),
             'estado': forms.Select(attrs={'class': 'form-control'}),
-            'condicion': forms.Select(attrs={'class': 'form-control'}),  # ← Agregar
+            'condicion': forms.Select(attrs={'class': 'form-control'}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -251,17 +270,27 @@ class UnidadMasivaForm(forms.Form):
         label='Número inicial',
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1})
     )
+    # NUEVOS CAMPOS
+    modelo = forms.CharField(
+        max_length=100,
+        required=False,
+        label='Modelo',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: MTA M3000 (opcional)'
+        })
+    )
     bodega = forms.ModelChoiceField(
         queryset=Bodega.objects.filter(activa=True),
         label='Bodega',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    estado = forms.ModelChoiceField(  # ← Cambio: ModelChoiceField en lugar de ChoiceField
+    estado = forms.ModelChoiceField(
         queryset=EstadoUnidad.objects.filter(activo=True),
         label='Estado',
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    condicion = forms.ChoiceField(  # ← NUEVO
+    condicion = forms.ChoiceField(
         choices=Unidad.CONDICION_CHOICES,
         initial=Unidad.CONDICION_NUEVO,
         label='Condición',

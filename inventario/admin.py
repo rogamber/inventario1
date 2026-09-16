@@ -79,23 +79,31 @@ class ProductoAdmin(admin.ModelAdmin):
 @admin.register(Unidad)
 class UnidadAdmin(admin.ModelAdmin):
     list_display = (
-        'numero_serie', 'producto', 'bodega',
-        'estado', 'created_at' , 'condicion'
+        'numero_serie', 'numero_activo', 'modelo',
+        'mta_mac', 'cm_mac', 'producto', 'bodega',
+        'estado', 'condicion'
     )
-    list_filter = ('estado', 'bodega', 'producto__categoria' , 'condicion')
-    search_fields = ('numero_serie', 'producto__nombre', 'producto__codigo')
+    list_filter = ('estado', 'condicion', 'bodega', 'producto__categoria')
+    search_fields = (
+        'numero_serie', 'numero_activo', 'modelo',
+        'mta_mac', 'cm_mac', 'producto__nombre', 'producto__codigo'
+    )
     ordering = ('producto', 'numero_serie')
     list_per_page = 25
     autocomplete_fields = ('producto',)
-    list_select_related = ('producto', 'bodega', 'estado')  # ← Optimización
-    list_editable = ('condicion',)  # ← Editable en línea
+    list_select_related = ('producto', 'bodega', 'estado')
+    list_editable = ('condicion',)
     
     fieldsets = (
-        ('Información de la Unidad', {
-            'fields': ('producto', 'numero_serie', 'bodega')
+        ('Identificación', {
+            'fields': ('producto', 'numero_serie', 'numero_activo', 'modelo')
         }),
-        ('Estado y Condición', {
-            'fields': ('estado', 'notas' , 'condicion')
+        ('Direcciones MAC', {
+            'fields': ('mta_mac', 'cm_mac'),
+            'classes': ('collapse',)
+        }),
+        ('Ubicación y Estado', {
+            'fields': ('bodega', 'estado', 'condicion', 'notas')
         }),
     )
 

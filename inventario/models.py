@@ -210,6 +210,34 @@ class Unidad(models.Model):
         unique=True,
         verbose_name='Número de Serie'
     )
+    numero_activo = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Número de Activo',
+        help_text='Número de activo fijo de la empresa'
+    )
+    mta_mac = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='MTA MAC',
+        help_text='Dirección MAC del MTA'
+    )
+    cm_mac = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        verbose_name='CM MAC',
+        help_text='Dirección MAC del Cable Modem'
+    )
+    modelo = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='Modelo',
+        help_text='Modelo del equipo'
+    )
     bodega = models.ForeignKey(
         Bodega,
         on_delete=models.SET_NULL,
